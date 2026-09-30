@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sendesis.dev/schemas/finding.json",
+  "title": "Findings report",
+  "description": "What a reviewer returns, and what adjudication writes. Reviewers fill findings only; adjudication sets state, supporters, dissenters and moves minority findings into dissent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role_id", "findings"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "role_id": {"type": "string"},
+    "round": {"type": "integer", "minimum": 0},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "dissent": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "summary": {"type": "string"}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "claim", "category", "severity", "location", "evidence"],
+      "properties": {
+        "id": {"type": "string"},
+        "claim": {"type": "string", "minLength": 5},
+        "category": {"type": "string", "description": "e.g. a CWE id such as CWE-89, or a short slug."},
+        "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file"],
+          "properties": {
+            "file": {"type": "string"},
+            "line_start": {"type": "integer", "minimum": 1},
+            "line_end": {"type": "integer", "minimum": 1}
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "content"],
+            "properties": {
+              "kind": {"enum": ["quote", "repro", "reference", "reasoning"]},
+              "content": {"type": "string"}
+            }
+          }
+        },
+        "suggested_fix": {"type": "string"},
+        "state": {"enum": ["confirmed", "disputed", "unverified"], "description": "Set by adjudication, not by the reviewer."},
+        "raised_by": {"type": "string", "description": "Blinded reviewer label (A, B, ...) during the loop; mapped to profile ids only in the final report."},
+        "supporters": {"type": "array", "items": {"type": "string"}},
+        "dissenters": {"type": "array", "items": {"type": "string"}},
+        "first_round": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

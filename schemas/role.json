@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sendesis.dev/schemas/role.json",
+  "title": "Role contract",
+  "description": "What a role must do, independent of which model does it. A change to any field below requires a version bump, which voids existing receipts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "purpose", "inputs", "definition_of_done", "output_schema", "tools", "model_requirements", "qualification", "failover_order", "team"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "purpose": {"type": "string", "minLength": 10},
+    "prompt_file": {
+      "type": "string",
+      "description": "Path to the role's instruction prompt, relative to the repo root. Its content hash is recorded in receipts."
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "required": {"type": "boolean", "default": true}
+        }
+      }
+    },
+    "definition_of_done": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "output_schema": {"type": "string", "description": "Path to the JSON Schema every output must validate against."},
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "network"],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["read", "search", "shell", "write", "web"]},
+          "description": "Abstract capabilities. Each runner maps these to its own native flags."
+        },
+        "network": {"type": "boolean", "description": "Whether the model's own tool use may reach the network. Separate from the runner's API access."}
+      }
+    },
+    "model_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_context_tokens": {"type": "integer", "minimum": 1},
+        "structured_output": {"type": "boolean"},
+        "notes": {"type": "string"}
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "min_cases", "metrics", "expiry_days"],
+      "properties": {
+        "suite": {"type": "string"},
+        "min_cases": {"type": "integer", "minimum": 1},
+        "expiry_days": {"type": "integer", "minimum": 1},
+        "metrics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "direction", "threshold"],
+            "properties": {
+              "name": {"type": "string"},
+              "direction": {"enum": ["higher_is_better", "lower_is_better"]},
+              "threshold": {"type": "number", "description": "Compared against the conservative end of the confidence interval."}
+            }
+          }
+        }
+      }
+    },
+    "failover_order": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string"},
+      "description": "Profile ids in priority order. The router only ever uses profiles with a valid receipt for this role version."
+    },
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["off", "loop"], "description": "loop is only honored when a gate receipt for this role says the loop won."},
+        "max_rounds": {"type": "integer", "minimum": 1, "maximum": 16},
+        "stop_rule": {"enum": ["no_new_confirmed_finding", "max_rounds_only"]},
+        "min_families": {"type": "integer", "minimum": 2}
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "per_call_timeout_s": {"type": "integer", "minimum": 5},
+        "max_turns": {"type": "integer", "minimum": 1},
+        "max_input_tokens_per_run": {"type": "integer", "minimum": 1},
+        "escalation_reserve_calls": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

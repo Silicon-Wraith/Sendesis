@@ -1,0 +1,10 @@
+id: vllm-local
+enabled: false               # enable after choosing a model in Spike 0
+family: set-me               # e.g. qwen, llama, mistral: must differ from anthropic and openai
+runner: openai_http
+model: set-me                # the served model name vLLM reports at /v1/models
+endpoint: http://127.0.0.1:8000/v1
+timeout_s: 600
+notes: >-
+  No tools. The runner sends the diff and context inline and asks for
+  structured JSON output. Used for large N-sample baseline runs.

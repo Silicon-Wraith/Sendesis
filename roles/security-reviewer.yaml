@@ -1,0 +1,63 @@
+id: security-reviewer
+version: 0.1.0
+purpose: >-
+  Review a code change for security vulnerabilities and report each one with
+  its location, category, severity and evidence. Report nothing that the
+  change does not support.
+prompt_file: roles/security-reviewer.prompt.md
+
+inputs:
+  - name: diff
+    description: Unified diff of the change under review.
+  - name: context_files
+    description: Full contents of files the diff touches, for surrounding code.
+    required: false
+
+definition_of_done:
+  - Every finding names a file and line range inside the diff or its context files.
+  - Every finding carries at least one piece of evidence quoted from the code.
+  - Output validates against schemas/finding.json.
+  - A clean change returns an empty findings list, not an invented issue.
+
+output_schema: schemas/finding.json
+
+tools:
+  allowed: [read, search]
+  network: false
+
+model_requirements:
+  min_context_tokens: 128000
+  structured_output: true
+
+qualification:
+  suite: suites/security-reviewer
+  min_cases: 100
+  expiry_days: 30
+  metrics:
+    - name: recall
+      direction: higher_is_better
+      threshold: 0.6
+    - name: false_positives_per_clean_case
+      direction: lower_is_better
+      threshold: 0.5
+    - name: schema_validity
+      direction: higher_is_better
+      threshold: 0.98
+
+# Priority order for failover. Only profiles holding a valid receipt are used.
+failover_order:
+  - claude-opus
+  - codex-gpt
+  - vllm-local
+  - ollama-local
+
+team:
+  mode: "off"          # set to loop only after a team_gate receipt says the loop won
+  max_rounds: 8
+  stop_rule: no_new_confirmed_finding
+  min_families: 2
+
+budgets:
+  per_call_timeout_s: 300
+  max_turns: 20
+  escalation_reserve_calls: 2
