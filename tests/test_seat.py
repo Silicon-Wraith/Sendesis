@@ -34,7 +34,7 @@ def test_fenced_json_and_nulls_are_accepted(root: Path):
 
 def test_invalid_output_is_typed(root: Path):
     r = run(root, json.dumps({"role_id": "x"}))
-    assert r.outcome is Outcome.INVALID and "required property" in r.reason
+    assert r.outcome is Outcome.INVALID and "'findings' is a required property" in r.reason
 
 
 def test_not_json_is_invalid(root: Path):
@@ -99,3 +99,44 @@ def test_openai_like_fingerprint_is_stable(root: Path, tmp_path: Path):
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     a = fingerprint(build_model(profile, role, cwd=tmp_path, timeout_s=30), profile)
     assert a == fingerprint(build_model(profile, role, cwd=tmp_path, timeout_s=30), profile)
+
+
+def test_prose_with_two_objects_is_invalid(root: Path):
+    r = run(root, 'Here: {"a":"x"} and also {"b":1}')
+    assert r.outcome is Outcome.INVALID and r.output is None
+
+
+def test_ok_text_is_raw_reply(root: Path):
+    r = run(root, json.dumps(GOOD))
+    assert json.loads(r.text) == GOOD
+
+
+def _agent_for(model, root: Path):
+    schema = json.loads((root / "schemas" / "finding.json").read_text())
+    return make_agent(model, instructions="x", schema=schema)
+
+
+def test_cli_model_gets_bare_schema(root: Path):
+    a = _agent_for(ScriptedModel(), root)
+    assert "$schema" not in a.output_schema and "properties" in a.output_schema
+
+
+def test_openai_like_gets_wrapped_schema(root: Path, tmp_path: Path):
+    profile = load_profile(root / "profiles" / "ollama-local.yaml", root)
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    a = _agent_for(build_model(profile, role, cwd=tmp_path, timeout_s=30), root)
+    assert a.output_schema["type"] == "json_schema"
+    assert "properties" in a.output_schema["json_schema"]["schema"]
+    assert a.model.max_retries == 0
+
+
+def test_openai_timeout_is_classified():
+    import httpx
+    from agno.exceptions import ModelProviderError
+    from openai import APITimeoutError
+
+    from sendesis.seat import _is_timeout
+
+    err = ModelProviderError("boom")
+    err.__cause__ = APITimeoutError(request=httpx.Request("POST", "http://x"))
+    assert _is_timeout(err) and not _is_timeout(RuntimeError("x"))
