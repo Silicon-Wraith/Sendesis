@@ -18,20 +18,20 @@ id: planted-0001
 source: planted          # cvefixes | owasp | planted | clean
 clean: false             # true for a change with no vulnerability
 labels:                  # empty when clean is true
-  - cwe: CWE-89
-    file: app/db.py
-    line_start: 42
-    line_end: 44
+  - category: CWE-89
+    ranges:
+      - {file: app/db.py, start: 42, end: 44}
 notes: string-built SQL in lookup_user
 ```
 
 ## Scoring rules (implement in the engine, not by an LLM)
 
-- A finding matches a label when the file is the same and the line ranges overlap, allowing 3 lines of slack either side.
+- A finding matches a label when the file is the same and the finding overlaps any of the label's ranges, allowing 3 lines of slack either side. A label counts once, however many findings hit it.
 - Recall = matched labels / all labels, over non-clean cases.
 - False positives per clean case = findings on clean cases / number of clean cases.
 - Category agreement (finding CWE equals label CWE) is reported separately and is not part of the pass bar.
 - Schema validity = outputs that validate / outputs returned.
+- Schema validity passes on its point value (at least 0.98); recall and false positives per clean case pass on the conservative end of their interval.
 - Report Wilson 95 percent intervals per metric and a paired bootstrap for differences between arms.
 
 ## Sources

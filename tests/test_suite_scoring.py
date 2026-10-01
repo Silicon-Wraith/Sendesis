@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from sendesis.model import ValidationFailed
-from sendesis.scoring import CaseOutcome, bootstrap_mean_ci, compute_metrics, matches, wilson
-from sendesis.suite import Label, load_suite
+from sendesis.scoring import CaseOutcome, Score, bootstrap_mean_ci, compute_metrics, matches, passes, wilson
+from sendesis.suite import Label, Range, load_suite
 
 DIFF = "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n@@ -1 +1 @@\n-x = 1\n+x = 2\n"
 
@@ -12,10 +12,11 @@ DIFF = "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n@@ -1 +1 @@\n-
 def write_case(suite: Path, case_id: str, *, clean: bool, labels: list[dict] | None = None, context: dict | None = None):
     d = suite / "cases" / case_id
     (d / "context").mkdir(parents=True)
-    labels = labels if labels is not None else ([] if clean else [{"cwe": "CWE-89", "file": "app.py", "line_start": 10, "line_end": 12}])
+    labels = labels if labels is not None else ([] if clean else [{"category": "CWE-89", "ranges": [{"file": "app.py", "start": 10, "end": 12}]}])
     lines = [f"id: {case_id}", "source: planted", f"clean: {'true' if clean else 'false'}", "labels:" + (" []" if not labels else "")]
     for lab in labels:
-        lines += [f"  - cwe: {lab['cwe']}", f"    file: {lab['file']}", f"    line_start: {lab['line_start']}", f"    line_end: {lab['line_end']}"]
+        lines += [f"  - category: {lab['category']}", "    ranges:"]
+        lines += [f"      - {{file: {r['file']}, start: {r['start']}, end: {r['end']}}}" for r in lab["ranges"]]
     (d / "case.yaml").write_text("\n".join(lines) + "\n")
     (d / "diff.patch").write_text(DIFF)
     for rel, text in (context or {"app.py": "x = 2\n"}).items():
@@ -33,7 +34,7 @@ def test_load_suite_reads_cases_in_order(tmp_path):
     suite = load_suite(tmp_path)
     assert [c.id for c in suite.cases] == ["a-clean", "b-vuln"]
     vuln = suite.cases[1]
-    assert vuln.labels == (Label("CWE-89", "app.py", 10, 12),)
+    assert vuln.labels == (Label("CWE-89", (Range("app.py", 10, 12),)),)
     assert vuln.diff == DIFF
     assert vuln.context == {"app.py": "x = 2\n"}
     assert len(suite.sha256) == 64
@@ -47,7 +48,7 @@ def test_suite_hash_changes_with_any_case_file(tmp_path):
 
 
 def test_clean_case_with_labels_fails(tmp_path):
-    write_case(tmp_path, "c1", clean=True, labels=[{"cwe": "CWE-79", "file": "a.py", "line_start": 1, "line_end": 1}])
+    write_case(tmp_path, "c1", clean=True, labels=[{"category": "CWE-79", "ranges": [{"file": "a.py", "start": 1, "end": 1}]}])
     with pytest.raises(ValidationFailed) as exc:
         load_suite(tmp_path)
     assert any("c1" in m and "clean" in m for m in exc.value.messages)
@@ -85,7 +86,7 @@ def finding(file="app.py", start=10, end=12, category="CWE-89"):
     return {"id": "f", "claim": "a claim", "category": category, "severity": "blocking", "claim_status": "proven", "location": loc, "evidence": [{"kind": "code_quote", "file": file, "text": "x"}]}
 
 
-LABEL = Label("CWE-89", "app.py", 10, 12)
+LABEL = Label("CWE-89", (Range("app.py", 10, 12),))
 
 
 @pytest.mark.parametrize(
@@ -138,7 +139,7 @@ def outcome(case_id, clean, labels, findings, valid=True, returned=True):
 def test_compute_metrics():
     outcomes = [
         outcome("v1", False, [LABEL], [finding()]),  # hit
-        outcome("v2", False, [LABEL, Label("CWE-22", "b.py", 1, 2)], [finding()]),  # 1 of 2
+        outcome("v2", False, [LABEL, Label("CWE-22", (Range("b.py", 1, 2),))], [finding()]),  # 1 of 2
         outcome("v3", False, [LABEL], [], valid=False),  # invalid output: miss
         outcome("c1", True, [], [finding(), finding()]),  # 2 false positives
         outcome("c2", True, [], []),
@@ -151,3 +152,32 @@ def test_compute_metrics():
     assert m["category_agreement"].value == pytest.approx(1.0)
     assert m["recall"].ci_method == "wilson"
     assert m["false_positives_per_clean_case"].ci_method == "bootstrap"
+
+
+SINK = Label("CWE-22", (Range("index.js", 14, 14), Range("index.js", 52, 52), Range("index.js", 64, 64)))
+
+
+def test_finding_at_any_range_matches():
+    assert matches(finding(file="index.js", start=52, end=52, category="CWE-22"), SINK)
+    assert matches(finding(file="index.js", start=63, end=65, category="CWE-22"), SINK)
+    assert not matches(finding(file="index.js", start=30, end=30, category="CWE-22"), SINK)
+
+
+def test_several_findings_for_one_label_count_once():
+    m = compute_metrics([outcome("v1", False, [SINK], [
+        finding(file="index.js", start=14, end=14, category="CWE-22"),
+        finding(file="index.js", start=52, end=52, category="CWE-22"),
+    ])])
+    assert m["recall"].value == 1.0 and m["recall"].n == 1
+
+
+def test_label_without_ranges_fails(tmp_path):
+    write_case(tmp_path, "v1", clean=False, labels=[{"category": "CWE-89", "ranges": []}])
+    with pytest.raises(ValidationFailed):
+        load_suite(tmp_path)
+
+
+def test_point_basis_uses_the_value():
+    s = Score(1.0, 0.963, 1.0, "wilson", 100)
+    assert passes(s, "higher_is_better", 0.98, "point")
+    assert not passes(s, "higher_is_better", 0.98, "interval")

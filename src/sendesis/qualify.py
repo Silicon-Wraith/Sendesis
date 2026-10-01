@@ -166,7 +166,7 @@ def qualify(
                 continue
             scores.append({
                 "metric": m.name, "value": round(score.value, 6), "ci_low": round(score.ci_low, 6), "ci_high": round(score.ci_high, 6),
-                "ci_method": score.ci_method, "threshold": m.threshold, "pass": passes(score, m.direction, m.threshold),
+                "ci_method": score.ci_method, "threshold": m.threshold, "pass": passes(score, m.direction, m.threshold, m.basis),
             })
     if outcomes and len(suite.cases) < role.qualification.min_cases:
         reasons.append(f"suite has {len(suite.cases)} cases, role requires at least {role.qualification.min_cases}")
