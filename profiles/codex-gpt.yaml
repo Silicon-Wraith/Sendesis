@@ -5,7 +5,7 @@ model:
   class: codex
   id: gpt-5.6-sol
   effort: high
-  cli_version: "0.155.1"     # parsed `codex --version`; set from Step 4's output
+  cli_version: "0.155.1"  # parsed `codex --version`
 timeout_s: 300
 notes: >-
   Reached through agno-cli-models (codex app-server) with the CLI's own login.

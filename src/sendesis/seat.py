@@ -67,7 +67,7 @@ def build_model(profile: Profile, role: Role, *, cwd: Path, timeout_s: float):
         }
         if m.effort:
             kwargs["effort"] = m.effort
-        max_turns = role.max_turns or profile.max_turns
+        max_turns = min((t for t in (role.max_turns, profile.max_turns) if t), default=None)
         if max_turns:
             kwargs["max_turns"] = max_turns
         return ClaudeCodeModel(**kwargs)

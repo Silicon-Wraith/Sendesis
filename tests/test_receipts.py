@@ -81,3 +81,11 @@ def test_drift_voids_receipt(root: Path, change, reason):
     change(kw)
     status, reasons = effective_status(receipt, **kw)
     assert status == "UNKNOWN" and any(reason in r for r in reasons), reasons
+
+
+def test_receipt_without_observation_for_profile_says_so(root: Path):
+    role, profile, kw = args(root)
+    receipt = v2_receipt(role, profile)
+    receipt["observed"][0]["profile_id"] = "other-profile"
+    status, reasons = effective_status(receipt, **kw)
+    assert status == "UNKNOWN" and reasons == [f"no observation for profile {profile.id}"]

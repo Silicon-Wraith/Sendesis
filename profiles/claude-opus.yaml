@@ -5,7 +5,7 @@ model:
   class: claude_code
   id: claude-opus-5-5
   effort: high
-  cli_version: "2.1.287"     # parsed `claude --version`; set from Step 4's output
+  cli_version: "2.1.287"  # parsed `claude --version`
 timeout_s: 300
 max_turns: 20
 notes: >-

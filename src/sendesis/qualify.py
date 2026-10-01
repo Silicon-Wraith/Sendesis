@@ -24,7 +24,7 @@ from typing import Any, Callable
 
 from agno_cli_models.versions import installed_version, parse_version
 
-from sendesis.model import Profile, Role, ValidationFailed, load_profile, load_role
+from sendesis.model import REVIEWER_FORBIDDEN_TOOLS, Profile, Role, ValidationFailed, load_profile, load_role, rel_path
 from sendesis.receipts import current_fingerprint, iso, write_receipt
 from sendesis.scoring import CaseOutcome, compute_metrics, passes
 from sendesis.seat import Outcome, SeatResult, run_role
@@ -111,6 +111,9 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
         raise QualifyError(f"{role.id} is provisional: it has no qualification suite, so there is nothing to qualify against")
     if role.kind != "reviewer":
         raise QualifyError(f"{role.id} is a {role.kind}; M3.1 qualifies reviewer roles")
+    forbidden = [t for t in role.tools_allowed if t in REVIEWER_FORBIDDEN_TOOLS]
+    if forbidden:
+        raise QualifyError(f"{role.id} is a reviewer but allows {', '.join(forbidden)}; reviewers never get edit or shell tools")
     if not profile.enabled:
         raise QualifyError(f"profile {profile.id} is disabled")
     if profile.id not in role.failover_order and not dry_run:
@@ -209,7 +212,7 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
         "role": {"id": role.id, "version": role.version, "sha256": role.sha256, "prompt_sha256": role.prompt_sha256},
         "profile": {"ids": [profile.id], "sha256": profile.sha256},
         "observed": [observed],
-        "suite": {"path": _suite_rel(root, suite.path), "sha256": suite.sha256, "n_cases": len(suite.cases)},
+        "suite": {"path": rel_path(suite.path, root), "sha256": suite.sha256, "n_cases": len(suite.cases)},
         "status": status,
         "scores": scores,
         "cost": cost,
@@ -224,13 +227,6 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
         path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
         return QualifyResult(path, receipt)
     return QualifyResult(write_receipt(root, receipt), receipt)
-
-
-def _suite_rel(root: Path, path: Path) -> str:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return str(path)
 
 
 def _log(run_log: Path, case_id: str, result: SeatResult) -> None:

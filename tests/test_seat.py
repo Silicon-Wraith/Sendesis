@@ -140,3 +140,15 @@ def test_openai_timeout_is_classified():
     err = ModelProviderError("boom")
     err.__cause__ = APITimeoutError(request=httpx.Request("POST", "http://x"))
     assert _is_timeout(err) and not _is_timeout(RuntimeError("x"))
+
+
+def test_max_turns_is_the_smaller_of_role_and_profile(root: Path, tmp_path: Path):
+    from conftest import edit_yaml
+
+    rpath = root / "roles" / "security-reviewer.yaml"
+    ppath = root / "profiles" / "claude-opus.yaml"
+    for role_turns, profile_turns, want in [(5, 20, 5), (30, 20, 20), (None, 20, 20), (7, None, 7)]:
+        edit_yaml(rpath, lambda d: d["budgets"].update(max_turns=role_turns) if role_turns else d["budgets"].pop("max_turns", None))
+        edit_yaml(ppath, lambda d: d.update(max_turns=profile_turns) if profile_turns else d.pop("max_turns", None))
+        model = build_model(load_profile(ppath, root), load_role(rpath, root), cwd=tmp_path, timeout_s=30)
+        assert model.max_turns == want

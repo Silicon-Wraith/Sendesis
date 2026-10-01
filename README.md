@@ -525,7 +525,8 @@ The current architectural direction is:
               +-------------v-------------+
               |    Model Routing Plane    |
               |                           |
-              |        Switchyard         |
+              | Sendesis router           |
+              | (optional: Switchyard)    |
               +------+------+-------------+
                      |      |
                   Cloud    Local
@@ -534,7 +535,7 @@ The current architectural direction is:
                      |   +-----------------+
                      |   | Compute Plane   |
                      |   |                 |
-                     |   |      PAIR       |
+                     |   | (optional: PAIR)|
                      |   +---+----+----+---+
                      |       |    |    |
                      |      GPU  GPU  GPU

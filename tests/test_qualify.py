@@ -257,3 +257,17 @@ def test_fingerprint_change_during_run_is_unknown(qroot, tmp_path):
     plan["c2"] = [dataclasses.replace(plan["c2"][0], config_fingerprint="b" * 64)]
     r = run(qroot, plan, tmp_path).receipt
     assert r["status"] == "UNKNOWN" and "config fingerprint changed during the run" in r["status_reason"]
+
+
+def test_reviewer_with_edit_or_shell_tool_is_refused_before_any_call(qroot, tmp_path):
+    edit_yaml(qroot / "roles" / "security-reviewer.yaml", lambda d: d["tools"].update(allowed=["read", "shell"]))
+    calls = []
+
+    def seat_fn(*a, **k):
+        calls.append(a)
+        raise AssertionError("no call may be made")
+
+    with pytest.raises(QualifyError, match="shell"):
+        qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN,
+                now=NOW, workdir=tmp_path / "wd", runs_dir=tmp_path / "runs")
+    assert calls == []

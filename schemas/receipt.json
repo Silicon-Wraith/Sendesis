@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sendesis.dev/schemas/receipt.json",
   "title": "Qualification receipt",
-  "description": "Evidence that a profile met a role's bar on a suite. Valid only while role version, profile hash, suite hash, CLI version and model all still match, and before expires_at. Otherwise the router treats the status as UNKNOWN.",
+  "description": "Evidence that a profile met a role's bar on a suite. Valid only while role version, profile hash, suite hash, CLI version, model and config fingerprint all still match, and before expires_at. Otherwise the router treats the status as UNKNOWN. Receipts issued before M3.1 are kept as written, do not validate against this schema, and are read only through effective_status, which reports them UNKNOWN.",
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "role", "profile", "observed", "suite", "status", "scores", "cost", "issued_at", "expires_at"],
@@ -37,10 +37,10 @@
         "required": ["profile_id", "model", "config_fingerprint"],
         "properties": {
           "profile_id": {"type": "string"},
-          "runner_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Phase 2 runner flags hash. Superseded by config_fingerprint; kept so old receipts still validate."},
-          "config_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "The model class's config_fingerprint(): isolation and permission settings in force."},
+          "runner_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Hash of the Phase 2 isolation flags. Superseded by config_fingerprint. Receipts issued before M3.1 carry it, are kept as written, do not validate against this schema, and are read only through effective_status, which reports them UNKNOWN."},
+          "config_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Required. The model client's config_fingerprint(): isolation and permission settings in force for the seat."},
           "cli_version": {"type": "string"},
-          "model": {"type": "string", "description": "Model actually reported by the runner, not the requested one."},
+          "model": {"type": "string", "description": "Model actually reported by the model client, not the requested one."},
           "workdir_context_sha256": {"type": "string", "description": "Hash of AGENTS.md / CLAUDE.md in the suite working directory."}
         }
       }
@@ -65,7 +65,7 @@
         "required": ["metric", "value", "ci_low", "ci_high", "threshold", "pass", "basis"],
         "properties": {
           "metric": {"type": "string"},
-          "basis": {"enum": ["interval", "point"]},
+          "basis": {"enum": ["interval", "point"], "description": "Required. How the metric was judged: against the interval (conservative end) or as a point value. Receipts issued before M3.1 lack it, do not validate against this schema, and are read only through effective_status, which reports them UNKNOWN."},
           "arm": {"type": "string", "description": "team_gate only: cross_model_loop, same_model_loop, single_pass, n_sample_vote."},
           "rounds": {"type": "integer", "minimum": 1},
           "value": {"type": "number"},
@@ -86,7 +86,7 @@
         "cached_input_tokens": {"type": "integer", "minimum": 0},
         "output_tokens": {"type": "integer", "minimum": 0},
         "wall_s": {"type": "number", "minimum": 0},
-        "list_usd": {"type": "number", "minimum": 0, "description": "Notional list price where the runner reports it. Not a charge on flat-rate plans."}
+        "list_usd": {"type": "number", "minimum": 0, "description": "Notional list price where the model client reports it. Not a charge on flat-rate plans."}
       }
     },
     "issued_at": {"type": "string", "format": "date-time"},

@@ -56,7 +56,10 @@ def effective_status(
     now: datetime,
 ) -> tuple[str, list[str]]:
     """Status a router may rely on for a single-profile receipt, and why it changed."""
-    obs = next((o for o in receipt["observed"] if o["profile_id"] == profile.id), {})
+    obs = next((o for o in receipt["observed"] if o["profile_id"] == profile.id), None)
+    if obs is None and receipt["observed"]:
+        return "UNKNOWN", [f"no observation for profile {profile.id}"]
+    obs = obs or {}
     if "config_fingerprint" not in obs:
         return "UNKNOWN", ["no config fingerprint (issued before M3.1)"]
     reasons = []
