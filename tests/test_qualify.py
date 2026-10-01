@@ -214,7 +214,7 @@ def test_effective_status_holds_when_nothing_changed(qroot):
     (lambda i: i.update(runner_config_sha256="0" * 64), "runner config"),
     (lambda i: i.update(profile=replace(i["profile"], sha256="0" * 64)), "profile"),
     (lambda i: i.update(profile=replace(i["profile"], model=replace(i["profile"].model, id="claude-sonnet-5-5"))), "model"),
-    (lambda i: i.update(role=replace(i["role"], version="0.2.0")), "role version"),
+    (lambda i: i.update(role=replace(i["role"], version="0.3.0")), "role version"),
     (lambda i: i.update(role=replace(i["role"], sha256="0" * 64)), "role file"),
     (lambda i: i.update(role=replace(i["role"], prompt_sha256="0" * 64)), "prompt"),
 ])

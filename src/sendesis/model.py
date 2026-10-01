@@ -82,8 +82,20 @@ class RoleInput:
 @dataclass(frozen=True)
 class Metric:
     name: str
-    direction: str
+    direction: str  # "higher_is_better" | "lower_is_better"
     threshold: float
+    basis: str = "interval"  # "interval" (conservative end) | "point"
+
+
+@dataclass(frozen=True)
+class Qualification:
+    suite: str
+    min_cases: int
+    expiry_days: int
+    metrics: tuple[Metric, ...]
+
+
+REVIEWER_FORBIDDEN_TOOLS = ("edit", "shell")
 
 
 @dataclass(frozen=True)
@@ -92,22 +104,24 @@ class Role:
     sha256: str
     id: str
     version: str
+    kind: str  # "worker" | "reviewer"
     purpose: str
     inputs: tuple[RoleInput, ...]
     definition_of_done: tuple[str, ...]
     output_schema: str
     tools_allowed: tuple[str, ...]
-    tools_network: bool
-    suite: str
-    min_cases: int
-    expiry_days: int
-    metrics: tuple[Metric, ...]
+    context: tuple[str, ...]
     failover_order: tuple[str, ...]
-    team_mode: str
+    qualification: Qualification | None
     per_call_timeout_s: int | None = None
+    max_turns: int | None = None
     prompt_file: str | None = None
     prompt_sha256: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
+
+    @property
+    def provisional(self) -> bool:
+        return self.qualification is None
 
 
 CLI_CLASSES = {"claude_code": ("claude", "anthropic"), "codex": ("codex", "openai")}
@@ -144,25 +158,27 @@ def load_role(path: Path, root: Path) -> Role:
     data, sha = _load_checked(path, root, "role.json")
     prompt_file = data.get("prompt_file")
     prompt_path = root / prompt_file if prompt_file else None
-    q = data["qualification"]
+    q = data.get("qualification")
+    budgets = data.get("budgets", {})
     return Role(
         path=path,
         sha256=sha,
         id=data["id"],
         version=data["version"],
+        kind=data["kind"],
         purpose=data["purpose"],
         inputs=tuple(RoleInput(i["name"], i["description"], i.get("required", True)) for i in data["inputs"]),
         definition_of_done=tuple(data["definition_of_done"]),
         output_schema=data["output_schema"],
         tools_allowed=tuple(data["tools"]["allowed"]),
-        tools_network=data["tools"]["network"],
-        suite=q["suite"],
-        min_cases=q["min_cases"],
-        expiry_days=q["expiry_days"],
-        metrics=tuple(Metric(m["name"], m["direction"], m["threshold"]) for m in q["metrics"]),
+        context=tuple(data.get("context", [])),
         failover_order=tuple(data["failover_order"]),
-        team_mode=data["team"]["mode"],
-        per_call_timeout_s=data.get("budgets", {}).get("per_call_timeout_s"),
+        qualification=None if q is None else Qualification(
+            suite=q["suite"], min_cases=q["min_cases"], expiry_days=q["expiry_days"],
+            metrics=tuple(Metric(m["name"], m["direction"], m["threshold"], m.get("basis", "interval")) for m in q["metrics"]),
+        ),
+        per_call_timeout_s=budgets.get("per_call_timeout_s"),
+        max_turns=budgets.get("max_turns"),
         prompt_file=prompt_file,
         prompt_sha256=file_sha256(prompt_path) if prompt_path and prompt_path.is_file() else None,
         raw=data,

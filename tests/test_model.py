@@ -10,7 +10,7 @@ from sendesis.model import ValidationFailed, canonical_sha256, load_profile, loa
 def test_role_loads_as_dataclass(root: Path):
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     assert role.id == "security-reviewer"
-    assert role.version == "0.1.0"
+    assert role.version == "0.2.0"
     assert role.failover_order[0] == "claude-opus"
     assert len(role.sha256) == 64
 
@@ -107,3 +107,34 @@ def test_agno_provider_class_is_accepted(root: Path):
     path = root / "profiles" / "vllm-local.yaml"
     edit_yaml(path, lambda d: d.update(model={"class": "agno:anthropic:Claude", "id": "claude-x"}))
     assert load_profile(path, root).model.cls == "agno:anthropic:Claude"
+
+
+def test_role_v2_fields(root: Path):
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    assert role.kind == "reviewer" and role.tools_allowed == ("read", "search")
+    assert role.context == ("governing_docs", "retractions")
+    assert role.provisional is False
+    by_name = {m.name: m for m in role.qualification.metrics}
+    assert by_name["schema_validity"].basis == "point" and by_name["recall"].basis == "interval"
+
+
+def test_role_without_qualification_is_provisional(root: Path):
+    path = root / "roles" / "security-reviewer.yaml"
+    edit_yaml(path, lambda d: d.pop("qualification"))
+    role = load_role(path, root)
+    assert role.provisional is True and role.qualification is None
+
+
+def test_role_team_block_is_rejected(root: Path):
+    path = root / "roles" / "security-reviewer.yaml"
+    edit_yaml(path, lambda d: d.update(team={"mode": "off"}))
+    with pytest.raises(ValidationFailed) as exc:
+        load_role(path, root)
+    assert any("team" in m for m in exc.value.messages)
+
+
+def test_role_network_must_be_false(root: Path):
+    path = root / "roles" / "security-reviewer.yaml"
+    edit_yaml(path, lambda d: d["tools"].update(network=True))
+    with pytest.raises(ValidationFailed):
+        load_role(path, root)

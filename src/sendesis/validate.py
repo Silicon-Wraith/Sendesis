@@ -12,7 +12,7 @@ from pathlib import Path
 
 from jsonschema.exceptions import SchemaError
 
-from sendesis.model import CLI_CLASSES, Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
+from sendesis.model import CLI_CLASSES, REVIEWER_FORBIDDEN_TOOLS, Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
 
 SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json")
 PLACEHOLDER = "set-me"
@@ -108,6 +108,15 @@ def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str
             report.warnings.append(f"{msg}. Enabling {', '.join(disabled)} may fix this")
         else:
             report.errors.append(msg)
+
+    if role.kind == "reviewer":
+        bad = [t for t in role.tools_allowed if t in REVIEWER_FORBIDDEN_TOOLS]
+        if bad:
+            report.errors.append(f"{where}: reviewer roles can never have {', '.join(bad)} (tools.allowed)")
+    if role.provisional:
+        report.warnings.append(f"{where}: provisional: no qualification suite; it runs with a warning and accepts profiles without receipts")
+    elif not (root / role.qualification.suite / "cases").is_dir():
+        report.errors.append(f"{where}: qualification.suite '{role.qualification.suite}' has no cases/ folder")
 
 
 def validate_repo(root: Path) -> Report:

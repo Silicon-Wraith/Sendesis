@@ -1,5 +1,6 @@
 id: security-reviewer
-version: 0.1.0
+version: 0.2.0
+kind: reviewer
 purpose: >-
   Review a code change for security vulnerabilities and report each one with
   its location, category, severity and evidence. Report nothing that the
@@ -25,6 +26,8 @@ tools:
   allowed: [read, search]
   network: false
 
+context: [governing_docs, retractions]
+
 model_requirements:
   min_context_tokens: 128000
   structured_output: true
@@ -37,12 +40,15 @@ qualification:
     - name: recall
       direction: higher_is_better
       threshold: 0.6
+      basis: interval
     - name: false_positives_per_clean_case
       direction: lower_is_better
       threshold: 0.5
+      basis: interval
     - name: schema_validity
       direction: higher_is_better
       threshold: 0.98
+      basis: point
 
 # Priority order for failover. Only profiles holding a valid receipt are used.
 failover_order:
@@ -50,12 +56,6 @@ failover_order:
   - codex-gpt
   - vllm-local
   - ollama-local
-
-team:
-  mode: "off"          # set to loop only after a team_gate receipt says the loop won
-  max_rounds: 8
-  stop_rule: no_new_confirmed_finding
-  min_families: 2
 
 budgets:
   per_call_timeout_s: 300

@@ -118,3 +118,22 @@ def test_broken_profile_is_not_also_reported_as_unknown(root: Path):
     errors = validate_repo(root).errors
     assert any("codex-gpt.yaml" in e and "model" in e for e in errors)
     assert not any("unknown profile 'codex-gpt'" in e for e in errors)
+
+
+def test_reviewer_with_shell_fails(root: Path):
+    edit_yaml(root / ROLE, lambda d: d["tools"].update(allowed=["read", "search", "shell"]))
+    errors = validate_repo(root).errors
+    assert any("security-reviewer.yaml" in e and "shell" in e and "reviewer" in e for e in errors)
+
+
+def test_provisional_role_warns(root: Path):
+    edit_yaml(root / ROLE, lambda d: d.pop("qualification"))
+    report = validate_repo(root)
+    assert report.errors == []
+    assert any("security-reviewer.yaml" in w and "provisional" in w for w in report.warnings)
+
+
+def test_missing_suite_folder_fails(root: Path):
+    edit_yaml(root / ROLE, lambda d: d["qualification"].update(suite="suites/nope"))
+    errors = validate_repo(root).errors
+    assert any("suites/nope" in e for e in errors)

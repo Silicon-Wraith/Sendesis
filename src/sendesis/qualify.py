@@ -109,7 +109,9 @@ def qualify(
     try:
         role = load_role(root / "roles" / f"{role_id}.yaml", root)
         profile = load_profile(root / "profiles" / f"{profile_id}.yaml", root)
-        suite = load_suite(suite_dir or root / role.suite)
+        if role.qualification is None:
+            raise QualifyError(f"role {role.id} is provisional: it has no qualification block")
+        suite = load_suite(suite_dir or root / role.qualification.suite)
     except (ValidationFailed, FileNotFoundError) as exc:
         raise QualifyError(str(exc)) from exc
     if not profile.enabled:
@@ -157,7 +159,7 @@ def qualify(
     scores = []
     if outcomes:
         metrics = compute_metrics(outcomes)
-        for m in role.metrics:
+        for m in role.qualification.metrics:
             score = metrics.get(m.name)
             if score is None:
                 reasons.append(f"metric {m.name} could not be computed")
@@ -166,8 +168,8 @@ def qualify(
                 "metric": m.name, "value": round(score.value, 6), "ci_low": round(score.ci_low, 6), "ci_high": round(score.ci_high, 6),
                 "ci_method": score.ci_method, "threshold": m.threshold, "pass": passes(score, m.direction, m.threshold),
             })
-    if outcomes and len(suite.cases) < role.min_cases:
-        reasons.append(f"suite has {len(suite.cases)} cases, role requires at least {role.min_cases}")
+    if outcomes and len(suite.cases) < role.qualification.min_cases:
+        reasons.append(f"suite has {len(suite.cases)} cases, role requires at least {role.qualification.min_cases}")
 
     if reasons:
         status = "UNKNOWN"
@@ -201,7 +203,7 @@ def qualify(
         "scores": scores,
         "cost": cost,
         "issued_at": iso(started),
-        "expires_at": iso(started + timedelta(days=role.expiry_days)),
+        "expires_at": iso(started + timedelta(days=role.qualification.expiry_days)),
     }
     if reasons:
         receipt["status_reason"] = "; ".join(reasons)
