@@ -13,8 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from sendesis.model import Profile, Role, load_profile, load_role, rel_path, schema_validator
-from agno_cli_models.versions import installed_version
-from sendesis.seat import SandboxUnavailable
+from agno_cli_models.versions import installed_version, parse_version
 from sendesis.suite import suite_sha256
 
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -76,7 +75,7 @@ def effective_status(
         reasons.append("suite changed")
     if obs["config_fingerprint"] != config_fingerprint:
         reasons.append("model class configuration changed (config fingerprint)")
-    if profile.cli_binary and obs.get("cli_version") != cli_version:
+    if profile.cli_binary and parse_version(obs.get("cli_version") or "") != parse_version(cli_version or ""):
         reasons.append(f"cli version {obs.get('cli_version')!r} -> {cli_version!r}")
     if obs.get("model") != profile.model.id:
         reasons.append(f"model observed {obs.get('model')!r}, profile now wants {profile.model.id!r}")
@@ -124,7 +123,7 @@ def check_all(root: Path, now: datetime) -> list[tuple[Path, str, str, list[str]
             versions[profile.cli_binary] = installed_version(profile.cli_binary)
         try:
             fingerprint = current_fingerprint(profile, role)
-        except SandboxUnavailable as exc:
+        except Exception as exc:  # SandboxUnavailable, a missing binary: void this row, keep listing
             rows.append((Path(rel_path(path, root)), receipt["status"], "UNKNOWN", [f"seat cannot be built: {exc}"]))
             continue
         status, reasons = effective_status(

@@ -1,7 +1,9 @@
 import json
-import shutil
 from datetime import datetime, timezone
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from sendesis.model import load_profile, load_role
 from sendesis.receipts import effective_status
@@ -58,3 +60,24 @@ def test_cli_version_change_voids(root: Path):
     role, profile, kw = args(root, cli_version="0.0.1")
     status, reasons = effective_status(v2_receipt(role, profile), **kw)
     assert status == "UNKNOWN" and any("cli version" in r for r in reasons)
+
+
+DRIFT = [
+    (lambda k: k.update(role=replace(k["role"], version="0.0.9")), "role version"),
+    (lambda k: k.update(role=replace(k["role"], sha256="0" * 64)), "role file"),
+    (lambda k: k.update(role=replace(k["role"], prompt_sha256="0" * 64)), "role prompt"),
+    (lambda k: k.update(profile=replace(k["profile"], sha256="0" * 64)), "profile file"),
+    (lambda k: k.update(suite_sha256="0" * 64), "suite changed"),
+    (lambda k: k.update(profile=replace(k["profile"], model=replace(k["profile"].model, id="other-model"))), "model observed"),
+    (lambda k: k.update(now=datetime(2026, 11, 5, tzinfo=timezone.utc)), "expired"),
+    (lambda k: k.update(role=replace(k["role"], qualification=None)), "no qualification suite"),
+]
+
+
+@pytest.mark.parametrize("change, reason", DRIFT)
+def test_drift_voids_receipt(root: Path, change, reason):
+    role, profile, kw = args(root)
+    receipt = v2_receipt(role, profile)
+    change(kw)
+    status, reasons = effective_status(receipt, **kw)
+    assert status == "UNKNOWN" and any(reason in r for r in reasons), reasons

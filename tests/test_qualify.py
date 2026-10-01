@@ -91,7 +91,7 @@ def test_perfect_reviewer_qualifies_and_receipt_validates(qroot):
     names = {s["metric"] for s in r["scores"]}
     assert names == {"recall", "false_positives_per_clean_case", "schema_validity"}
     obs = r["observed"][0]
-    assert obs["model"] == "claude-opus-5-5" and obs["cli_version"] == CLAUDE_VERSION
+    assert obs["model"] == "claude-opus-5-5" and obs["cli_version"] == "2.1.281"
     assert len(obs["config_fingerprint"]) == 64 and len(obs["workdir_context_sha256"]) == 64
 
 
@@ -206,3 +206,25 @@ def test_cli_receipts_shows_recorded_reason(qroot, capsys, monkeypatch):
     monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: "9.9.9")
     main(["receipts", "--root", str(qroot)])
     assert "does not match profile pin" in capsys.readouterr().out
+
+
+def test_fresh_receipt_survives_check_all(qroot, capsys, monkeypatch):
+    run_qualify(qroot, FakeRunner())
+    import sendesis.receipts as receipts_mod
+    monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: "2.1.281")
+    rows = receipts_mod.check_all(qroot, NOW + timedelta(days=1))
+    assert [(r[2], r[3]) for r in rows] == [("QUALIFIED", [])]
+
+
+def test_check_all_voids_row_when_seat_cannot_be_built(qroot, monkeypatch):
+    run_qualify(qroot, FakeRunner())
+    import sendesis.receipts as receipts_mod
+    from sendesis.seat import SandboxUnavailable
+
+    def boom(profile, role):
+        raise SandboxUnavailable("needs edit")
+
+    monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: "2.1.281")
+    monkeypatch.setattr(receipts_mod, "current_fingerprint", boom)
+    rows = receipts_mod.check_all(qroot, NOW + timedelta(days=1))
+    assert rows[0][2] == "UNKNOWN" and "needs edit" in rows[0][3][0]

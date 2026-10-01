@@ -182,7 +182,7 @@ def qualify(
     observed = {"profile_id": profile.id, "model": models[0] if len(models) == 1 else (",".join(models) or "not-observed"),
                 "config_fingerprint": current_fingerprint(profile, role), "workdir_context_sha256": workdir_context_sha256(workdir)}
     if installed:
-        observed["cli_version"] = installed
+        observed["cli_version"] = parse_version(installed) or installed
     list_usd = [r.list_usd for r in results if r.list_usd is not None]
     cost = {
         "input_tokens": sum(r.input_tokens for r in results),
