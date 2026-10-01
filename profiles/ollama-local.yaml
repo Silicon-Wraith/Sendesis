@@ -1,9 +1,9 @@
 id: ollama-local
-enabled: false               # enable after choosing a model; see Task 12
-family: set-me               # e.g. qwen: must differ from anthropic and openai
+enabled: true
+family: qwen                 # must differ from anthropic and openai
 model:
   class: openai_like
-  id: set-me                 # name as shown by `ollama list`
+  id: hf.co/OBLITERATUS/Qwen3.8-27B-OBLITERATED:Q4_K_M   # name as shown by `ollama list`
   base_url: http://127.0.0.1:11434/v1
 timeout_s: 600
 notes: >-
