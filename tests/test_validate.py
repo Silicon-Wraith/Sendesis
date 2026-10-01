@@ -59,7 +59,8 @@ def test_disabled_profile_with_placeholder_family_warns(root: Path):
 
 
 def test_single_family_failover_warns_while_disabled_profiles_remain(root: Path):
-    edit_yaml(root / "profiles" / "codex-gpt.yaml", lambda d: d.update(enabled=False))
+    for name in ("codex-gpt", "ollama-local"):
+        edit_yaml(root / "profiles" / f"{name}.yaml", lambda d: d.update(enabled=False))
     report = validate_repo(root)
     assert report.errors == []
     assert any("failover_order" in w and "famil" in w for w in report.warnings)
