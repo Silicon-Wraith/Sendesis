@@ -15,11 +15,16 @@ from sendesis.model import ValidationFailed
 
 
 @dataclass(frozen=True)
-class Label:
-    cwe: str
+class Range:
     file: str
-    line_start: int
-    line_end: int
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class Label:
+    category: str  # CWE id for security; a correctness category for the Code Reviewer
+    ranges: tuple[Range, ...]  # at least one
 
 
 @dataclass(frozen=True)
@@ -66,12 +71,16 @@ def _load_case(d: Path) -> tuple[Case | None, list[str]]:
     labels = []
     for i, lab in enumerate(raw_labels):
         try:
-            label = Label(str(lab["cwe"]), str(lab["file"]), int(lab["line_start"]), int(lab["line_end"]))
+            ranges = tuple(Range(str(r["file"]), int(r["start"]), int(r["end"])) for r in lab["ranges"])
+            label = Label(str(lab["category"]), ranges)
         except (KeyError, TypeError, ValueError):
-            errors.append(f"{where}: labels[{i}] needs cwe, file, line_start and line_end")
+            errors.append(f"{where}: labels[{i}] needs category and ranges of {{file, start, end}}")
             continue
-        if label.line_end < label.line_start:
-            errors.append(f"{where}: labels[{i}] line_end is before line_start")
+        if not ranges:
+            errors.append(f"{where}: labels[{i}] needs at least one range")
+        for j, r in enumerate(ranges):
+            if r.end < r.start:
+                errors.append(f"{where}: labels[{i}].ranges[{j}] end is before start")
         labels.append(label)
     if clean is True and labels:
         errors.append(f"{where}: a clean case must have no labels")

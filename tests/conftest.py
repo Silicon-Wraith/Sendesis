@@ -9,8 +9,8 @@ REPO = Path(__file__).resolve().parent.parent
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
-    """A copy of the repo's schemas, roles and profiles that a test may mutate."""
-    for folder in ("schemas", "roles", "profiles"):
+    """A copy of the repo's schemas, roles, profiles and suites that a test may mutate."""
+    for folder in ("schemas", "roles", "profiles", "suites"):
         shutil.copytree(REPO / folder, tmp_path / folder)
     return tmp_path
 

@@ -12,12 +12,11 @@ from pathlib import Path
 
 from jsonschema.exceptions import SchemaError
 
-from sendesis.model import Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
+from sendesis.model import CLI_CLASSES, REVIEWER_FORBIDDEN_TOOLS, Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
+from sendesis.workflow import load_workflow
 
-SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json")
+SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json", "workflow.json")
 PLACEHOLDER = "set-me"
-# The official CLIs only reach one vendor each, so their family is fixed.
-RUNNER_FAMILY = {"claude_cli": "anthropic", "codex_cli": "openai"}
 
 
 @dataclass
@@ -64,16 +63,22 @@ def _load_all(root: Path, folder: str, loader, report: Report) -> dict:
 
 def _check_profile(p: Profile, root: Path, report: Report) -> None:
     where = rel_path(p.path, root)
-    for key in ("family", "model"):
-        if getattr(p, key) == PLACEHOLDER:
-            msg = f"{where}: {key} is the placeholder '{PLACEHOLDER}'"
+    for label, value in (("family", p.family), ("model.id", p.model.id)):
+        if value == PLACEHOLDER:
+            msg = f"{where}: {label} is the placeholder '{PLACEHOLDER}'"
             if p.enabled:
                 report.errors.append(f"{msg} but the profile is enabled")
             else:
                 report.warnings.append(f"{msg}; set it before enabling")
-    expected = RUNNER_FAMILY.get(p.runner)
-    if expected and p.family != expected:
-        report.errors.append(f"{where}: runner {p.runner} reaches family '{expected}', but family is '{p.family}'")
+    if p.model.cls in CLI_CLASSES:
+        # The official CLIs only reach one vendor each, so their family is fixed.
+        binary, family = CLI_CLASSES[p.model.cls]
+        if p.family != family:
+            report.errors.append(f"{where}: model class {p.model.cls} reaches family '{family}', but family is '{p.family}'")
+        if not p.model.cli_version:
+            report.errors.append(f"{where}: model class {p.model.cls} needs model.cli_version (the {binary} version it was set up with)")
+    if p.model.cls == "openai_like" and not p.model.base_url:
+        report.errors.append(f"{where}: model class openai_like needs model.base_url")
 
 
 def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str], root: Path, report: Report) -> None:
@@ -105,6 +110,27 @@ def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str
         else:
             report.errors.append(msg)
 
+    if role.kind == "reviewer":
+        bad = [t for t in role.tools_allowed if t in REVIEWER_FORBIDDEN_TOOLS]
+        if bad:
+            report.errors.append(f"{where}: reviewer roles can never have {', '.join(bad)} (tools.allowed)")
+    if role.provisional:
+        report.warnings.append(f"{where}: provisional: no qualification suite; it runs with a warning and accepts profiles without receipts")
+    elif not (root / role.qualification.suite / "cases").is_dir():
+        report.errors.append(f"{where}: qualification.suite '{role.qualification.suite}' has no cases/ folder")
+
+
+def _check_workflow(wf, roles: dict, root: Path, report: Report) -> None:
+    where = rel_path(wf.path, root)
+    for stage in wf.stages:
+        for seat in stage.seats:
+            if seat.role not in roles:
+                report.errors.append(f"{where}: stage {stage.id} names unknown role '{seat.role}'")
+            if seat.distinct_families > seat.count:
+                report.errors.append(f"{where}: stage {stage.id}: distinct_families {seat.distinct_families} exceeds count {seat.count} for {seat.role}")
+        if stage.inner_loop and stage.inner_loop["checker"] not in roles:
+            report.errors.append(f"{where}: stage {stage.id}: inner_loop checker '{stage.inner_loop['checker']}' is not a known role")
+
 
 def validate_repo(root: Path) -> Report:
     report = Report()
@@ -117,4 +143,8 @@ def validate_repo(root: Path) -> Report:
     profile_files = {path.stem for path in (root / "profiles").glob("*.yaml")}
     for role in roles.values():
         _check_role(role, profiles, profile_files, root, report)
+
+    workflows = _load_all(root, "workflows", load_workflow, report) if "workflow.json" in good_schemas else {}
+    for wf in workflows.values():
+        _check_workflow(wf, roles, root, report)
     return report

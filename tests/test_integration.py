@@ -1,41 +1,29 @@
-"""Real CLI calls. They spend subscription quota, so they only run on purpose:
+"""Integration tier: one real call per CLI through the seat path. Spends quota; run with -m integration."""
 
-    .venv/bin/pytest -m integration
-"""
-
-import json
+import shutil
+from pathlib import Path
 
 import pytest
 
-from conftest import REPO
-from sendesis.model import load_profile
-from sendesis.runners import Call, Status, claude_cli, cli_version, codex_cli
+from sendesis.model import load_profile, load_role
+from sendesis.qualify import build_message, prepare_workdir
+from sendesis.seat import Outcome, run_role
+from sendesis.suite import load_suite
 
 pytestmark = pytest.mark.integration
-
-SCHEMA = json.loads((REPO / "schemas" / "finding.json").read_text())
-PROMPT = (
-    "Review this diff for security problems. Return JSON for the findings schema with role_id "
-    "security-reviewer.\n\n```diff\n--- a/app.py\n+++ b/app.py\n@@ -1 +1 @@\n"
-    "-cur.execute('SELECT * FROM t WHERE id = ?', (i,))\n+cur.execute(f'SELECT * FROM t WHERE id = {i}')\n```\n"
-)
+REPO = Path(__file__).resolve().parent.parent
 
 
-@pytest.fixture
-def workdir(tmp_path):
-    import subprocess
-
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True, stdin=subprocess.DEVNULL)
-    return tmp_path
-
-
-@pytest.mark.parametrize("name, module", [("claude-opus", claude_cli), ("codex-gpt", codex_cli)])
-def test_real_call_returns_pinned_model_and_version(name, module, workdir):
-    profile = load_profile(REPO / "profiles" / f"{name}.yaml", REPO)
-    assert cli_version(profile.cli_binary) == profile.cli_version, "installed CLI differs from the profile pin"
-    call = Call(PROMPT, SCHEMA, workdir, profile.timeout_s)
-    result = module.run(profile, ("read", "search"), call) if module is claude_cli else module.run(profile, call)
-    assert result.status is Status.OK, result.reason
-    assert result.model == profile.model
-    assert result.output is not None and "findings" in result.output
+@pytest.mark.parametrize("profile_id, binary", [("claude-opus", "claude"), ("codex-gpt", "codex")])
+def test_one_smoke_case_on_the_seat_path(profile_id, binary, tmp_path):
+    if shutil.which(binary) is None:
+        pytest.skip(f"{binary} is not installed")
+    role = load_role(REPO / "roles" / "security-reviewer.yaml", REPO)
+    profile = load_profile(REPO / "profiles" / f"{profile_id}.yaml", REPO)
+    case = load_suite(REPO / "suites" / "security-reviewer-smoke").cases[0]
+    result = run_role(role, profile, build_message(role, case), root=REPO, cwd=prepare_workdir(tmp_path / "wd", case), timeout_s=profile.timeout_s)
+    assert result.outcome is Outcome.OK, result.reason
+    assert result.observed_model == profile.model.id
+    assert result.cli_version == profile.model.cli_version
     assert result.input_tokens > 0 and result.output_tokens > 0
+    assert len(result.config_fingerprint) == 64

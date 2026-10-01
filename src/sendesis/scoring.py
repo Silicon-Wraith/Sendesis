@@ -1,8 +1,8 @@
 """Suite scoring. A rule in code, never an LLM.
 
 Rules from `suites/security-reviewer/README.md`:
-- a finding matches a label when the file is the same and the line ranges
-  overlap, with 3 lines of slack either side;
+- a finding matches a label when the file is the same and the finding
+  overlaps any of the label's ranges, with 3 lines of slack either side;
 - recall = matched labels / all labels, over non-clean cases;
 - false positives per clean case = findings on clean cases / clean cases;
 - schema validity = outputs that validate / outputs returned;
@@ -16,7 +16,7 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from sendesis.suite import Label
+from sendesis.suite import Label, Range
 
 SLACK = 3
 Z95 = 1.959963984540054
@@ -49,13 +49,17 @@ def _norm(path: str) -> str:
     return path
 
 
-def matches(finding: dict[str, Any], label: Label) -> bool:
+def _overlaps(finding: dict[str, Any], r: Range) -> bool:
     loc = finding.get("location") or {}
     start = loc.get("line_start")
-    if start is None or _norm(loc.get("file", "")) != _norm(label.file):
+    if start is None or _norm(loc.get("file", "")) != _norm(r.file):
         return False
     end = loc.get("line_end") or start
-    return start <= label.line_end + SLACK and end >= label.line_start - SLACK
+    return start <= r.end + SLACK and end >= r.start - SLACK
+
+
+def matches(finding: dict[str, Any], label: Label) -> bool:
+    return any(_overlaps(finding, r) for r in label.ranges)
 
 
 def wilson(k: int, n: int, z: float = Z95) -> tuple[float, float]:
@@ -103,13 +107,15 @@ def compute_metrics(outcomes: list[CaseOutcome]) -> dict[str, Score]:
         metrics["schema_validity"] = Score(k / len(returned), *wilson(k, len(returned)), "wilson", len(returned))
 
     if matched_labels:
-        agree = sum(str(f.get("category", "")).upper() == label.cwe.upper() for label, f in matched_labels)
+        agree = sum(str(f.get("category", "")).upper() == label.category.upper() for label, f in matched_labels)
         metrics["category_agreement"] = Score(agree / len(matched_labels), *wilson(agree, len(matched_labels)), "wilson", len(matched_labels))
     return metrics
 
 
-def passes(score: Score, direction: str, threshold: float) -> bool:
-    """Compare the conservative end of the interval with the threshold."""
+def passes(score: Score, direction: str, threshold: float, basis: str = "interval") -> bool:
+    """`point` compares the value; `interval` compares the conservative end of the interval."""
+    if basis == "point":
+        return score.value >= threshold if direction == "higher_is_better" else score.value <= threshold
     if direction == "higher_is_better":
         return score.ci_low >= threshold
     return score.ci_high <= threshold

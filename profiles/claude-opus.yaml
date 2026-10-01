@@ -1,15 +1,14 @@
 id: claude-opus
 enabled: true
 family: anthropic
-runner: claude_cli
-model: claude-opus-5-5
-reasoning_effort: high
-cli:
-  binary: claude
-  version: "2.1.286 (Claude Code)"   # exact output of `claude --version`
+model:
+  class: claude_code
+  id: claude-opus-5-5
+  effort: high
+  cli_version: "2.1.287"  # parsed `claude --version`
 timeout_s: 300
 max_turns: 20
 notes: >-
-  Tool limits come from the role: read -> Read, search -> Grep/Glob.
-  Never grant Bash to review roles. Spike 0 measured about 34k input tokens
-  of CLI overhead per call, mostly cached.
+  Reached through agno-cli-models (Claude Agent SDK) with the CLI's own login.
+  Tools come from the role: read -> Read, search -> Grep and Glob. Never Bash
+  for a reviewer.
