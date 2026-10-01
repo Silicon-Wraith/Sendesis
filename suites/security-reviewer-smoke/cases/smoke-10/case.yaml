@@ -1,0 +1,5 @@
+id: smoke-10
+source: clean
+clean: true
+labels: []
+notes: adds jitter and a cap to a retry backoff

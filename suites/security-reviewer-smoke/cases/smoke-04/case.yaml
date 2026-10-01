@@ -1,0 +1,9 @@
+id: smoke-04
+source: planted
+clean: false
+labels:
+- cwe: CWE-79
+  file: static/comments.js
+  line_start: 5
+  line_end: 5
+notes: renderComments writes user-authored comment text as HTML

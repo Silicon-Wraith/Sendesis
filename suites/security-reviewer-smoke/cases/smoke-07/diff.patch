@@ -1,0 +1,20 @@
+diff --git a/app/report.py b/app/report.py
+--- a/app/report.py
++++ b/app/report.py
+@@ -1,6 +1,11 @@
++def _month(date: str) -> str:
++    """'2026-09-30' -> '2026-09'."""
++    return date[:7]
++
++
+ def monthly_totals(rows):
+-    out = {}
+-    for r in rows:
+-        k = r["date"][:7]
+-        out[k] = out.get(k, 0) + r["amount"]
+-    return dict(sorted(out.items()))
++    totals = {}
++    for row in rows:
++        month = _month(row["date"])
++        totals[month] = totals.get(month, 0) + row["amount"]
++    return dict(sorted(totals.items()))

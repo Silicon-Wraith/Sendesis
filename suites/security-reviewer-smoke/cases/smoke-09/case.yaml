@@ -1,0 +1,5 @@
+id: smoke-09
+source: clean
+clean: true
+labels: []
+notes: adds a comment count label using textContent

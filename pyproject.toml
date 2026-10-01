@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sendesis"
+version = "0.1.0"
+description = "Qualify AI execution profiles for engineering roles, fail over only to qualified profiles, and gate cross-model review loops."
+requires-python = ">=3.11"
+dependencies = [
+    "jsonschema[format-nongpl]>=4.18",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+sendesis = "sendesis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -m 'not integration'"
+markers = [
+    "integration: makes real CLI or HTTP model calls and spends subscription quota; run on purpose only",
+]

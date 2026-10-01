@@ -1,0 +1,10 @@
+id: clean-0002
+source: clean
+clean: true
+labels: []
+notes: "natural_list accepts any iterable by materialising it to a list of strings first"
+provenance:
+  repo: https://github.com/python-humanize/humanize
+  commit: ffdf407fdfe1a5738159b989eb2df190ed780448
+  license: MIT
+  reversed: false

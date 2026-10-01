@@ -1,0 +1,10 @@
+id: clean-0008
+source: clean
+clean: true
+labels: []
+notes: "pMapIterable skips closing the source iterator once it is exhausted"
+provenance:
+  repo: https://github.com/sindresorhus/p-map
+  commit: a97778a36cb5dfa0f9828336d9e8d99845cf41aa
+  license: MIT
+  reversed: false

@@ -1,0 +1,17 @@
+diff --git a/static/comments.js b/static/comments.js
+--- a/static/comments.js
++++ b/static/comments.js
+@@ -1,4 +1,4 @@
+-export function renderComments(list, comments) {
++export function renderComments(list, comments, counter) {
+   list.replaceChildren();
+   for (const c of comments) {
+     const item = document.createElement("li");
+@@ -7,4 +7,7 @@
+     item.append(author, `: ${c.body}`);
+     list.append(item);
+   }
++  if (counter) {
++    counter.textContent = `${comments.length} comment${comments.length === 1 ? "" : "s"}`;
++  }
+ }

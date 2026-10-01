@@ -1,0 +1,10 @@
+id: clean-0006
+source: clean
+clean: true
+labels: []
+notes: "isPlainObject rewritten as early returns with identical logic"
+provenance:
+  repo: https://github.com/unjs/defu
+  commit: e458b63653f9d70d7ae99a8c0e96287d06e8c72e
+  license: MIT
+  reversed: false

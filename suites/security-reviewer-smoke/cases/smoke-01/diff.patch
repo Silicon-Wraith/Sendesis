@@ -1,0 +1,12 @@
+diff --git a/app/users.py b/app/users.py
+--- a/app/users.py
++++ b/app/users.py
+@@ -4,7 +4,7 @@
+ def lookup_user(conn: sqlite3.Connection, name: str):
+     """Return (id, email) for a user name, or None."""
+     cur = conn.cursor()
+-    cur.execute("SELECT id, email FROM users WHERE name = ?", (name,))
++    cur.execute(f"SELECT id, email FROM users WHERE name = '{name}'")
+     return cur.fetchone()
+ 
+ 

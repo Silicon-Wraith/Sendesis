@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sendesis.dev/schemas/profile.json",
+  "title": "Execution profile",
+  "description": "Everything that decides how a call is made. Receipts record a hash of this file plus the observed CLI version and model; any drift makes the receipt UNKNOWN.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "family", "runner", "model", "timeout_s", "enabled"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "enabled": {"type": "boolean"},
+    "family": {
+      "type": "string",
+      "description": "Model family used for cross-family checks, e.g. anthropic, openai, qwen, llama."
+    },
+    "runner": {"enum": ["claude_cli", "codex_cli", "openai_http"]},
+    "model": {"type": "string", "minLength": 1},
+    "reasoning_effort": {"type": "string", "description": "Passed explicitly. Both CLIs default high if unset."},
+    "cli": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binary", "version"],
+      "properties": {
+        "binary": {"type": "string"},
+        "version": {"type": "string", "description": "Exact version string the receipt is valid for, as printed by --version."}
+      }
+    },
+    "endpoint": {"type": "string", "format": "uri", "description": "openai_http only. Base URL ending in /v1."},
+    "sandbox": {"enum": ["read-only", "workspace-write"], "description": "codex_cli only. danger-full-access is deliberately not allowed."},
+    "extra_args": {"type": "array", "items": {"type": "string"}},
+    "timeout_s": {"type": "integer", "minimum": 5, "description": "Hard wall-clock limit enforced by the orchestrator. A timeout with no output is a failover trigger."},
+    "max_turns": {"type": "integer", "minimum": 1},
+    "notes": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"runner": {"enum": ["claude_cli", "codex_cli"]}}},
+      "then": {"required": ["cli"]}
+    },
+    {
+      "if": {"properties": {"runner": {"const": "openai_http"}}},
+      "then": {"required": ["endpoint"]}
+    },
+    {
+      "if": {"properties": {"runner": {"const": "codex_cli"}}},
+      "then": {"required": ["sandbox", "reasoning_effort"]}
+    },
+    {
+      "if": {"properties": {"runner": {"const": "claude_cli"}}},
+      "then": {"required": ["reasoning_effort"]}
+    }
+  ]
+}

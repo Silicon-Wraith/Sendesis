@@ -1,0 +1,10 @@
+id: smoke-03
+source: planted
+clean: false
+labels:
+- cwe: CWE-22
+  file: web/files.py
+  line_start: 14
+  line_end: 14
+notes: download joins a user-supplied name onto the upload dir with no containment
+  check

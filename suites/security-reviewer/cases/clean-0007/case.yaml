@@ -1,0 +1,10 @@
+id: clean-0007
+source: clean
+clean: true
+labels: []
+notes: "adds a titleCase string helper and a Joiner type parameter"
+provenance:
+  repo: https://github.com/unjs/scule
+  commit: 146ecd076373a0a295d7f9649c144226ddfb0c2d
+  license: MIT
+  reversed: false

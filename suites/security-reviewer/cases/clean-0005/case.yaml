@@ -1,0 +1,10 @@
+id: clean-0005
+source: clean
+clean: true
+labels: []
+notes: "FarSeg can use torchgeo ResNet weights, with a backbone/weights mismatch check"
+provenance:
+  repo: https://github.com/torchgeo/torchgeo
+  commit: eea720cb76dc539fba726322d9316b885be74b7f
+  license: MIT
+  reversed: false

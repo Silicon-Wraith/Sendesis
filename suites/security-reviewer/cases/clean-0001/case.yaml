@@ -1,0 +1,10 @@
+id: clean-0001
+source: clean
+clean: true
+labels: []
+notes: "adds a min bound and timedelta support to wait_exponential_jitter"
+provenance:
+  repo: https://github.com/jd/tenacity
+  commit: 3233040287fb03391c0ad1a5ad7404d359f8a98d
+  license: Apache-2.0
+  reversed: false

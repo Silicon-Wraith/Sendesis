@@ -1,0 +1,5 @@
+id: smoke-08
+source: clean
+clean: true
+labels: []
+notes: adds a paged listing with a parameterized query and clamped limit

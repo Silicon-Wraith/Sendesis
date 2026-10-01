@@ -1,0 +1,10 @@
+id: clean-0004
+source: clean
+clean: true
+labels: []
+notes: "refactor: check_prop_types takes attributes/types/defaults instead of a Props object"
+provenance:
+  repo: https://github.com/mixxorz/slippers
+  commit: c44fcd127df6a080578601c6f122faadf168698e
+  license: MIT
+  reversed: false
