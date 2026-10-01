@@ -144,6 +144,7 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
             result = seat_fn(role, profile, message, cwd, timeout_s)
             results.append(result)
             if result.outcome is Outcome.INVALID:  # one retry on invalid output
+                _log(run_log, f"{case.id}.1", result)
                 result = seat_fn(role, profile, message, cwd, timeout_s)
                 results.append(result)
             _log(run_log, case.id, result)
@@ -160,6 +161,10 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
     wrong = [m for m in models if m != profile.model.id]
     if wrong:
         reasons.append(f"observed model {', '.join(wrong)}, profile wants {profile.model.id}")
+
+    fingerprints = sorted({r.config_fingerprint for r in results if r.config_fingerprint})
+    if len(fingerprints) > 1:
+        reasons.append("config fingerprint changed during the run")
 
     scores = []
     if outcomes:
@@ -185,7 +190,6 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
         status = "FAILED"
         reasons.append("failed: " + ", ".join(s["metric"] for s in scores if not s["pass"]))
 
-    fingerprints = sorted({r.config_fingerprint for r in results if r.config_fingerprint})
     observed = {
         "profile_id": profile.id,
         "model": models[0] if len(models) == 1 else (",".join(models) or "not-observed"),

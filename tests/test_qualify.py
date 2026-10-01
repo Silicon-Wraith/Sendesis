@@ -83,6 +83,9 @@ def test_invalid_output_retried_once_then_counted_invalid(qroot, tmp_path):
     assert seat_fn.calls.count("v1") == 2
     validity = next(s for s in r["scores"] if s["metric"] == "schema_validity")
     assert validity["value"] == pytest.approx(3 / 4)
+    assert r["status"] == "FAILED" and "schema_validity" in r["status_reason"]
+    logs = sorted(p.name for p in (tmp_path / "runs").rglob("v1*.json"))
+    assert logs == ["v1.1.json", "v1.json"]
 
 
 def test_rate_limit_stops_with_unknown(qroot, tmp_path):
@@ -133,13 +136,15 @@ def test_dry_run_writes_no_receipt(qroot, tmp_path):
 def test_cli_qualify_reports_local_flag(qroot, tmp_path, capsys, monkeypatch):
     import sendesis.qualify as q
 
+    monkeypatch.setattr(q, "default_workdir", lambda role_id: tmp_path / "wd")
     monkeypatch.setattr(q, "default_seat_fn", lambda root: scripted({k: [ok(model="qwen-test")] for k in ("v1", "v2", "c1", "c2")}))
     def local(d):
         d.update(enabled=True, family="qwen")
         d["model"].update(id="qwen-test")
     edit_yaml(qroot / "profiles" / "ollama-local.yaml", local)
     assert main(["qualify", "security-reviewer", "ollama-local", "--local", "--root", str(qroot)]) == 0
-    assert "DRY RUN" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out and "summary:" in out and ("(point)" in out or "(interval)" in out)
 
 
 def test_fresh_receipt_survives_check_all(qroot, tmp_path, monkeypatch):
@@ -171,3 +176,84 @@ def test_version_pin_compares_parsed_versions(qroot, tmp_path, profile, pin, ins
                 workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
     assert bool(seat_fn.calls) is proceeds
     assert ("does not match profile pin" in (r.get("status_reason") or "")) is (not proceeds)
+
+
+def all_ok():
+    return {"v1": [ok([HIT])], "v2": [ok([HIT])], "c1": [ok()], "c2": [ok()]}
+
+
+def test_too_few_cases_is_unknown_but_scores_recorded(qroot, tmp_path):
+    edit_yaml(qroot / "roles" / "security-reviewer.yaml", lambda d: d["qualification"].update(min_cases=100))
+    r = run(qroot, all_ok(), tmp_path).receipt
+    assert r["status"] == "UNKNOWN" and "suite has 4 cases" in r["status_reason"] and r["scores"]
+
+
+@pytest.mark.parametrize("outcome", [Outcome.TIMEOUT, Outcome.ERROR])
+def test_failed_call_is_unknown_and_names_case(qroot, tmp_path, outcome):
+    plan = all_ok()
+    plan["c1"] = [SeatResult(outcome, reason="boom")]
+    r = run(qroot, plan, tmp_path).receipt
+    assert r["status"] == "UNKNOWN" and f"case c1: {outcome.value}" in r["status_reason"]
+
+
+def test_receipts_are_never_overwritten(qroot, tmp_path):
+    from datetime import timedelta
+
+    a = run(qroot, all_ok(), tmp_path).path
+    b = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=scripted(all_ok()), version_fn=lambda x: PIN,
+                now=NOW + timedelta(seconds=1), workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").path
+    assert a != b and a.is_file() and b.is_file()
+    with pytest.raises(FileExistsError):
+        run(qroot, all_ok(), tmp_path)
+
+
+def test_check_all_voids_row_when_seat_cannot_be_built(qroot, tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    import sendesis.receipts as receipts_mod
+    from sendesis.seat import SandboxUnavailable
+
+    run(qroot, all_ok(), tmp_path)
+
+    def boom(profile, role):
+        raise SandboxUnavailable("needs edit")
+
+    monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: PIN)
+    monkeypatch.setattr(receipts_mod, "current_fingerprint", boom)
+    rows = receipts_mod.check_all(qroot, NOW + timedelta(days=1))
+    assert rows[0][2] == "UNKNOWN" and "needs edit" in rows[0][3][0]
+
+
+def _disable(root):
+    edit_yaml(root / "profiles" / "claude-opus.yaml", lambda d: d.update(enabled=False))
+
+
+def _not_in_order(root):
+    edit_yaml(root / "roles" / "security-reviewer.yaml", lambda d: d["failover_order"].remove("claude-opus"))
+
+
+def _worker(root):
+    edit_yaml(root / "roles" / "security-reviewer.yaml", lambda d: d.update(kind="worker"))
+
+
+@pytest.mark.parametrize("mutate", [_disable, _not_in_order, _worker])
+def test_refusals(qroot, tmp_path, mutate):
+    mutate(qroot)
+    with pytest.raises(QualifyError):
+        run(qroot, {}, tmp_path)
+
+
+def test_written_receipt_validates(qroot, tmp_path):
+    from sendesis.receipts import validate_receipt
+
+    result = run(qroot, all_ok(), tmp_path)
+    assert validate_receipt(qroot, json.loads(result.path.read_text())) == []
+
+
+def test_fingerprint_change_during_run_is_unknown(qroot, tmp_path):
+    import dataclasses
+
+    plan = all_ok()
+    plan["c2"] = [dataclasses.replace(plan["c2"][0], config_fingerprint="b" * 64)]
+    r = run(qroot, plan, tmp_path).receipt
+    assert r["status"] == "UNKNOWN" and "config fingerprint changed during the run" in r["status_reason"]
