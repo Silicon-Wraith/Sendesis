@@ -13,8 +13,9 @@ from pathlib import Path
 from jsonschema.exceptions import SchemaError
 
 from sendesis.model import CLI_CLASSES, REVIEWER_FORBIDDEN_TOOLS, Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
+from sendesis.workflow import load_workflow
 
-SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json")
+SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json", "workflow.json")
 PLACEHOLDER = "set-me"
 
 
@@ -119,6 +120,18 @@ def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str
         report.errors.append(f"{where}: qualification.suite '{role.qualification.suite}' has no cases/ folder")
 
 
+def _check_workflow(wf, roles: dict, root: Path, report: Report) -> None:
+    where = rel_path(wf.path, root)
+    for stage in wf.stages:
+        for seat in stage.seats:
+            if seat.role not in roles:
+                report.errors.append(f"{where}: stage {stage.id} names unknown role '{seat.role}'")
+            if seat.distinct_families > seat.count:
+                report.errors.append(f"{where}: stage {stage.id}: distinct_families {seat.distinct_families} exceeds count {seat.count} for {seat.role}")
+        if stage.inner_loop and stage.inner_loop["checker"] not in roles:
+            report.errors.append(f"{where}: stage {stage.id}: inner_loop checker '{stage.inner_loop['checker']}' is not a known role")
+
+
 def validate_repo(root: Path) -> Report:
     report = Report()
     good_schemas = _check_schemas(root, report)
@@ -130,4 +143,8 @@ def validate_repo(root: Path) -> Report:
     profile_files = {path.stem for path in (root / "profiles").glob("*.yaml")}
     for role in roles.values():
         _check_role(role, profiles, profile_files, root, report)
+
+    workflows = _load_all(root, "workflows", load_workflow, report) if "workflow.json" in good_schemas else {}
+    for wf in workflows.values():
+        _check_workflow(wf, roles, root, report)
     return report
