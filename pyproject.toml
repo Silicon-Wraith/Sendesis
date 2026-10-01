@@ -13,7 +13,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8",
+    "reasonhold @ git+https://github.com/Silicon-Wraith/ReasonHold@v0.1.1",
+]
 
 [project.scripts]
 sendesis = "sendesis.cli:main"

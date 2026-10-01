@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.venv/bin/reasonhold --root \"$CLAUDE_PROJECT_DIR\" preamble --format claude-hook || true", "timeout": 20}
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+# Sendesis manifest for ReasonHold. Placement is declared, never inferred.
+# Suite case code under suites/*/cases/ is third-party test data: it is not
+# indexed and belongs to no area.
+project:
+  id: sendesis
+  decisions: decisions.jsonl
+global:
+  checks: [qualification-engine]
+  docs:
+    - docs/specs/2026-09-30-system-vision-design.md
+    - CLAUDE.md
+    - docs/PLAN.md
+  archival:
+    - KICKOFF.md
+    - docs/AGNO_HANDOFF.md
+    - reports/2026-09-30-m1-agno-cli-models-review.md
+    - docs/plans/2026-09-30-m1-agno-cli-models.md
+  index: [README.md, "docs/**/*.md", "reports/*.md"]
+areas:
+  engine:
+    description: Qualification engine, scoring, receipts, validation and the CLI
+    projects: [sendesis]
+    docs: [docs/specs/2026-09-30-system-vision-design.md]
+    index: ["src/sendesis/*.py", "tests/*.py"]
+    checks: [qualification-engine]
+  runners:
+    description: Claude CLI, Codex CLI and OpenAI-compatible HTTP runners
+    projects: [sendesis]
+    docs: [CLAUDE.md]
+    index: ["src/sendesis/runners/*.py"]
+    checks: [runner-requirements]
+  contracts:
+    description: Role contracts and prompts, execution profiles, JSON Schemas
+    projects: [sendesis]
+    docs: [docs/specs/2026-09-30-system-vision-design.md, roles/security-reviewer.prompt.md]
+    index: ["roles/*.yaml", "roles/*.md", "profiles/*.yaml", "schemas/*.json"]
+  suites:
+    description: Qualification suites (documentation only; case code is test data)
+    projects: [sendesis]
+    docs:
+      - suites/security-reviewer/README.md
+      - suites/security-reviewer/PILOT_SOURCING.md
+      - suites/security-reviewer-smoke/README.md
+    index: ["suites/*/*.md"]
+  tooling:
+    description: Helper scripts and the Spike 0 probes (not product code)
+    projects: [sendesis]
+    docs: [spike/README.md]
+    index: ["scripts/*.py", "spike/*.py", "spike/*.md"]
+checks:
+  qualification-engine:
+    description: The engine follows the system vision spec's qualification, receipt and gate design
+    mode: index
+    reads: [docs/specs/2026-09-30-system-vision-design.md]
+    validates_against: [src/sendesis/, tests/]
+  runner-requirements:
+    description: Runners follow CLAUDE.md's runner requirements from Spike 0
+    mode: index
+    reads: [CLAUDE.md]
+    validates_against: [src/sendesis/runners/]
