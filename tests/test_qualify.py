@@ -42,9 +42,9 @@ def qroot(root: Path, tmp_path: Path) -> Path:
 
 
 def good_finding():
-    return {"id": "f1", "claim": "SQL injection here", "category": "CWE-89", "severity": "high",
+    return {"id": "f1", "claim": "SQL injection here", "category": "CWE-89", "severity": "blocking", "claim_status": "proven",
             "location": {"file": "app.py", "line_start": 11, "line_end": 11},
-            "evidence": [{"kind": "quote", "content": "x = 2"}]}
+            "evidence": [{"kind": "code_quote", "file": "app.py", "text": "x = 2"}]}
 
 
 class FakeRunner:
@@ -65,7 +65,7 @@ class FakeRunner:
         if case_id in self.outputs:
             output = self.outputs[case_id]
         else:
-            output = {"role_id": "security-reviewer", "findings": [] if case_id.startswith("c") else [good_finding()]}
+            output = {"role_id": "security-reviewer", "findings": [] if case_id.startswith("c") else [good_finding()], "checks": []}
         return RunResult(Status.OK, output=output, text=json.dumps(output), model=self.model, cli_version="2.1.281",
                          input_tokens=1000, cached_input_tokens=400, output_tokens=100, wall_s=2.0, list_usd=0.01)
 
@@ -141,7 +141,7 @@ def test_too_few_cases_gives_unknown(qroot):
 
 
 def test_poor_reviewer_fails(qroot):
-    outputs = {"v1": {"role_id": "security-reviewer", "findings": []}, "v2": {"role_id": "security-reviewer", "findings": []}}
+    outputs = {"v1": {"role_id": "security-reviewer", "findings": [], "checks": []}, "v2": {"role_id": "security-reviewer", "findings": [], "checks": []}}
     r = run_qualify(qroot, FakeRunner(outputs=outputs)).receipt
     assert r["status"] == "FAILED"
     recall = next(s for s in r["scores"] if s["metric"] == "recall")

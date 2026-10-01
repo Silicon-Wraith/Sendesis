@@ -82,7 +82,7 @@ def finding(file="app.py", start=10, end=12, category="CWE-89"):
         loc["line_start"] = start
     if end is not None:
         loc["line_end"] = end
-    return {"id": "f", "claim": "a claim", "category": category, "severity": "high", "location": loc, "evidence": [{"kind": "quote", "content": "x"}]}
+    return {"id": "f", "claim": "a claim", "category": category, "severity": "blocking", "claim_status": "proven", "location": loc, "evidence": [{"kind": "code_quote", "file": file, "text": "x"}]}
 
 
 LABEL = Label("CWE-89", "app.py", 10, 12)
