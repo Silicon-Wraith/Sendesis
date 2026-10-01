@@ -1,6 +1,6 @@
 # Stall handling for model seats
 
-Status: proposed, for review. Not approved, not implemented.
+Status: decisions recorded 2026-10-01 (approved). Not implemented: the agno-cli-models part is requested upstream, and the Sendesis part waits for it.
 
 Evidence: `reports/2026-10-01-m3.1-exit-run.md`, "Known issue: Codex stream stalls".
 
@@ -84,8 +84,19 @@ Three things went wrong in how Sendesis handled it:
 2. Sendesis: pin the new tag. Add `Outcome.STALL`, `idle_timeout_s` in the profile schema and model, the qualify retry and unmeasured cases, and the receipt fields. Unit tests use the scripted fake model raising `CliStallError`.
 3. Re-run `sendesis qualify security-reviewer codex-gpt`. Any stall now shows up as STALL with its retry, not as a 300 s timeout.
 
-## Decisions to record
+## Decisions recorded
 
-- `stall-is-not-a-miss`: qualification scores only measured cases. Any unmeasured case keeps the receipt UNKNOWN.
-- `idle-limit-upstream`: the idle limit lives in agno-cli-models and is measured on protocol messages. Sendesis only sets it per profile and types the error.
-- `stall-retry-once`: a stall gets one retry in qualification, and is a failover trigger in runs without skipping the profile for the rest of the run.
+Recorded in Sendesis's `decisions.jsonl`, provenance human:
+
+- `stall-is-not-a-miss` (dec-038618ace90a)
+- `idle-limit-upstream` (dec-4ab5fff8293f)
+- `stall-retry-once` (dec-5e74b139f525)
+
+## Upstream requests
+
+These are recorded in Sendesis's `decisions.jsonl` with the tags `upstream-request`, `pending` and `target:agno-cli-models`. They stand in for the `upstream_report` record planned for ReasonHold 0.2. A later Sendesis decision that supersedes a request closes it.
+
+- `request-agno-cli-models-idle-limit` (dec-acb04313987e): `idle_timeout_s`, `CliStallError`, the fingerprint change, tests, and a release tag.
+- `request-agno-cli-models-substrate-checks` (dec-5799c9b63ac7): measure the Claude Agent SDK's message cadence, and verify Codex's `stream_idle_timeout_ms` override.
+- `request-agno-cli-models-codex-isolation-leak` (dec-477114059d7c): the skills block, the multi-agent prompt and user features that reach Codex calls.
+- `request-agno-cli-models-housekeeping` (dec-996cadd56574): export `CliModel`, and add claude 2.1.287 to the tested set.
