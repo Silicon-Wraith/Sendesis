@@ -21,8 +21,9 @@ def test_one_smoke_case_on_the_seat_path(profile_id, binary, tmp_path):
     role = load_role(REPO / "roles" / "security-reviewer.yaml", REPO)
     profile = load_profile(REPO / "profiles" / f"{profile_id}.yaml", REPO)
     case = load_suite(REPO / "suites" / "security-reviewer-smoke").cases[0]
-    result = run_role(role, profile, build_message(role, case), root=REPO, cwd=prepare_workdir(tmp_path / "wd", case), timeout_s=300)
+    result = run_role(role, profile, build_message(role, case), root=REPO, cwd=prepare_workdir(tmp_path / "wd", case), timeout_s=profile.timeout_s)
     assert result.outcome is Outcome.OK, result.reason
     assert result.observed_model == profile.model.id
     assert result.cli_version == profile.model.cli_version
+    assert result.input_tokens > 0 and result.output_tokens > 0
     assert len(result.config_fingerprint) == 64
