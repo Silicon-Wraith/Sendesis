@@ -10,6 +10,9 @@ requires-python = ">=3.11"
 dependencies = [
     "jsonschema[format-nongpl]>=4.18",
     "pyyaml>=6",
+    "agno==3.0.11",
+    "agno-cli-models @ git+https://github.com/Silicon-Wraith/agno-cli-models@v0.1.0",
+    "openai>=1.40",
 ]
 
 [project.optional-dependencies]
@@ -26,7 +29,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers -m 'not integration'"
+addopts = "--strict-markers -m 'not integration and not local'"
 markers = [
-    "integration: makes real CLI or HTTP model calls and spends subscription quota; run on purpose only",
+    "integration: makes real CLI calls and spends subscription quota; run on purpose only",
+    "local: calls a local model over OpenAI-compatible HTTP (Ollama or vLLM); free, run on purpose",
 ]

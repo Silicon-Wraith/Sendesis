@@ -255,74 +255,27 @@ This distinction is deliberate.
 
 ## Model Routing
 
-[NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) is
-currently being evaluated as the model-routing fabric for Sendesis.
+Sendesis's router is the only component that picks a model. It chooses
+from the role's `failover_order`, filtered to profiles with a valid
+receipt and to the stage's diversity rule.
 
-Switchyard provides routing across heterogeneous model providers and
-supports custom classification and routing policies.
+A profile names a model class: `claude_code`, `codex`, `openai_like`, or
+any Agno model class.
 
-Sendesis treats Switchyard as infrastructure rather than as an
-application-level abstraction.
-
-The Sendesis policy layer determines the requirements of the task.
-Switchyard provides the mechanism for resolving and executing the
-resulting inference route.
-
-The integration will remain behind a Sendesis-owned interface so the
-routing implementation remains replaceable.
+[NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) and
+[NVIDIA Personal AI Router (PAIR)](https://github.com/NVIDIA/Personal-AI-Router)
+are optional transports. An `openai_like` profile may point at their
+endpoint. Nothing in the core depends on them.
 
 ## Local and Distributed Inference
 
-Local models are first-class participants in the Sendesis architecture.
+Local models are reached through OpenAI-compatible HTTP (Ollama, vLLM) as
+`openai_like` profiles.
 
-A role should not need to know whether its inference is being performed
-by a cloud provider or by a model running on local hardware.
+They serve as the free local test tier, as cheap baselines in the gate,
+and as last-resort failover where they are qualified.
 
-For a single local machine:
-
-``` text
-Sendesis
-    |
-    v
-Switchyard
-    |
-    v
-Local Inference
-```
-
-As additional local compute becomes available, [NVIDIA Personal AI
-Router (PAIR)](https://github.com/NVIDIA/Personal-AI-Router) is being
-evaluated as an optional compute-routing layer:
-
-``` text
-Sendesis
-    |
-    v
-Policy / Judge
-    |
-    v
-Switchyard
-    |
-    v
-PAIR
-    |
-    +-------- Node A
-    |
-    +-------- Node B
-    |
-    +-------- Node C
-```
-
-The responsibilities remain separate:
-
-``` text
-Sendesis Policy     -> Which qualified model should perform the task?
-Switchyard          -> How should the request reach that model?
-PAIR                -> Which eligible local machine should execute it?
-Inference Engine    -> Execute the model.
-```
-
-Neither Switchyard nor PAIR defines Sendesis roles or workflows.
+Multi-machine compute routing is not a v1 goal.
 
 ## Project Knowledge
 
@@ -572,7 +525,8 @@ The current architectural direction is:
               +-------------v-------------+
               |    Model Routing Plane    |
               |                           |
-              |        Switchyard         |
+              | Sendesis router           |
+              | (optional: Switchyard)    |
               +------+------+-------------+
                      |      |
                   Cloud    Local
@@ -581,7 +535,7 @@ The current architectural direction is:
                      |   +-----------------+
                      |   | Compute Plane   |
                      |   |                 |
-                     |   |      PAIR       |
+                     |   | (optional: PAIR)|
                      |   +---+----+----+---+
                      |       |    |    |
                      |      GPU  GPU  GPU

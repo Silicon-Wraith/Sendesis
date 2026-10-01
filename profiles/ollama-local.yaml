@@ -1,10 +1,10 @@
 id: ollama-local
-enabled: false               # enable after choosing a model in Spike 0
-family: set-me
-runner: openai_http
-model: set-me                # name as shown by `ollama list`
-endpoint: http://127.0.0.1:11434/v1
+enabled: true
+family: qwen                 # must differ from anthropic and openai
+model:
+  class: openai_like
+  id: hf.co/OBLITERATUS/Qwen3.8-27B-OBLITERATED:Q4_K_M   # name as shown by `ollama list`
+  base_url: http://127.0.0.1:11434/v1
 timeout_s: 600
 notes: >-
-  Containerized Ollama (ariadne-ollama-1) serves 127.0.0.1:11434. No tools.
-  Last-resort failover, only for roles it actually qualifies for.
+  Local tier and last-resort failover, only for roles it actually qualifies for.

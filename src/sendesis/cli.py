@@ -29,20 +29,22 @@ def cmd_qualify(args: argparse.Namespace) -> int:
 
     root = Path(args.root)
     try:
-        result = qualify(root, args.role, args.profile, suite_dir=Path(args.suite) if args.suite else None)
+        result = qualify(root, args.role, args.profile, suite_dir=Path(args.suite) if args.suite else None, dry_run=args.local)
     except QualifyError as exc:
         print(f"FAIL {exc}")
         return 2
     r = result.receipt
+    if args.local:
+        print("DRY RUN (no receipt written)")
     print(f"{r['status']}  {args.role} on {args.profile}  ({r['suite']['n_cases']} cases, suite {r['suite']['path']})")
     for s in r["scores"]:
         mark = "pass" if s["pass"] else "FAIL"
-        print(f"  {s['metric']:32} {s['value']:.3f}  [{s['ci_low']:.3f}, {s['ci_high']:.3f}] {s['ci_method']:9} threshold {s['threshold']}  {mark}")
+        print(f"  {s['metric']:32} {s['value']:.3f}  [{s['ci_low']:.3f}, {s['ci_high']:.3f}] {s['ci_method']:9} threshold {s['threshold']} ({s['basis']})  {mark}")
     c = r["cost"]
     print(f"  tokens in {c['input_tokens']} (cached {c.get('cached_input_tokens', 0)}), out {c['output_tokens']}, wall {c['wall_s']:.0f}s")
     if r.get("status_reason"):
         print(f"  reason: {r['status_reason']}")
-    print(f"  receipt: {result.path}")
+    print(f"  {'summary' if args.local else 'receipt'}: {result.path}")
     return 0
 
 
@@ -67,10 +69,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--root", default=".", help="Repo root holding schemas/, roles/ and profiles/ (default: current directory)")
     p.set_defaults(func=cmd_validate)
 
-    p = sub.add_parser("qualify", help="Run a role's suite on one profile and write a receipt. Spends subscription quota.")
+    p = sub.add_parser("qualify", help="Run a role's suite on one profile through its Agno model class and write a receipt. Spends subscription quota for CLI classes.")
     p.add_argument("role")
     p.add_argument("profile")
     p.add_argument("--suite", help="Suite folder to use instead of the role's qualification.suite")
+    p.add_argument("--local", action="store_true", help="Dry run on a local model (class openai_like): free, writes runs/.../summary.json, never a receipt")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_qualify)
 

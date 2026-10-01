@@ -2,8 +2,9 @@ id: smoke-02
 source: planted
 clean: false
 labels:
-- cwe: CWE-78
-  file: tools/archive.py
-  line_start: 10
-  line_end: 10
+- category: CWE-78
+  ranges:
+  - file: tools/archive.py
+    start: 10
+    end: 10
 notes: archive_folder passes request-supplied names to a shell

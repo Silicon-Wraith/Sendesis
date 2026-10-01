@@ -1,12 +1,13 @@
 """Generate the security-reviewer smoke suite: small planted cases with exact labels."""
 
 import difflib
+import os
 import shutil
 from pathlib import Path
 
 import yaml
 
-OUT = Path(__file__).resolve().parent.parent / "suites" / "security-reviewer-smoke" / "cases"
+OUT = Path(os.environ["SMOKE_OUT"]) if os.environ.get("SMOKE_OUT") else Path(__file__).resolve().parent.parent / "suites" / "security-reviewer-smoke" / "cases"
 
 CASES = [
     dict(id="smoke-01", clean=False, file="app/users.py", cwe="CWE-89", vuln='cur.execute(f"SELECT id, email FROM users WHERE name = \'{name}\'")',
@@ -296,7 +297,7 @@ for c in CASES:
         lines = c["new"].splitlines()
         hits = [i + 1 for i, line in enumerate(lines) if c["vuln"] in line]
         assert len(hits) == 1, (c["id"], hits)
-        labels = [{"cwe": c["cwe"], "file": c["file"], "line_start": hits[0], "line_end": hits[0]}]
+        labels = [{"category": c["cwe"], "ranges": [{"file": c["file"], "start": hits[0], "end": hits[0]}]}]
     meta = {"id": c["id"], "source": "clean" if c["clean"] else "planted", "clean": c["clean"], "labels": labels, "notes": c["notes"]}
     (d / "case.yaml").write_text(yaml.safe_dump(meta, sort_keys=False))
 print("wrote", len(CASES), "cases")

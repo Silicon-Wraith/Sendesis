@@ -1,0 +1,71 @@
+{
+  "kind": "single",
+  "role": {
+    "id": "security-reviewer",
+    "version": "0.2.0",
+    "sha256": "905cf2ee96733ef4312b80e02a39a300056f0f724ef82bc51d30307239d75cb1",
+    "prompt_sha256": "c8c9dfa605cd2063b694fe0c971f6bf7eca2b81ae76f3c9ec3e9c95373aa1b1b"
+  },
+  "profile": {
+    "ids": [
+      "codex-gpt"
+    ],
+    "sha256": "be4405c0804897f836cf4ff808988e4da9d03c932c9b988b4abe7a8086659199"
+  },
+  "observed": [
+    {
+      "profile_id": "codex-gpt",
+      "model": "gpt-5.6-sol",
+      "config_fingerprint": "8daff874517eefa7a1cfd5adcbf9332ff709a3ec7d7fd5452133f5df39b585b1",
+      "workdir_context_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.155.1"
+    }
+  ],
+  "suite": {
+    "path": "suites/security-reviewer",
+    "sha256": "fb72a054fd1ea04d2d78427554fbb0d7a85a5d776fb25d8e7e70662e08446869",
+    "n_cases": 30
+  },
+  "status": "UNKNOWN",
+  "scores": [
+    {
+      "metric": "recall",
+      "value": 0.677419,
+      "ci_low": 0.50141,
+      "ci_high": 0.814306,
+      "ci_method": "wilson",
+      "basis": "interval",
+      "threshold": 0.6,
+      "pass": false
+    },
+    {
+      "metric": "false_positives_per_clean_case",
+      "value": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "ci_method": "bootstrap",
+      "basis": "interval",
+      "threshold": 0.5,
+      "pass": true
+    },
+    {
+      "metric": "schema_validity",
+      "value": 1.0,
+      "ci_low": 0.866808,
+      "ci_high": 1.0,
+      "ci_method": "wilson",
+      "basis": "point",
+      "threshold": 0.98,
+      "pass": true
+    }
+  ],
+  "cost": {
+    "input_tokens": 508912,
+    "cached_input_tokens": 327552,
+    "output_tokens": 33032,
+    "wall_s": 2253.857
+  },
+  "issued_at": "2026-10-01T21:14:20Z",
+  "expires_at": "2026-10-31T21:14:20Z",
+  "status_reason": "case cve-0001: timeout: CliTimeoutError: codex gave no complete answer within 300s; case cve-0005: timeout: CliTimeoutError: codex gave no complete answer within 300s; case cve-0006: timeout: CliTimeoutError: codex gave no complete answer within 300s; case cve-0017: timeout: CliTimeoutError: codex gave no complete answer within 300s; case cve-0019: timeout: CliTimeoutError: codex gave no complete answer within 300s; suite has 30 cases, role requires at least 100"
+}

@@ -2,8 +2,9 @@ id: smoke-05
 source: planted
 clean: false
 labels:
-- cwe: CWE-502
-  file: api/session.py
-  line_start: 12
-  line_end: 12
+- category: CWE-502
+  ranges:
+  - file: api/session.py
+    start: 12
+    end: 12
 notes: restore_session unpickles a client-supplied cookie
