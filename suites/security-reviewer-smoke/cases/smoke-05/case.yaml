@@ -1,0 +1,9 @@
+id: smoke-05
+source: planted
+clean: false
+labels:
+- cwe: CWE-502
+  file: api/session.py
+  line_start: 12
+  line_end: 12
+notes: restore_session unpickles a client-supplied cookie

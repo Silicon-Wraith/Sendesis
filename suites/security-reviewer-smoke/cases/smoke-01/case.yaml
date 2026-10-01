@@ -1,0 +1,9 @@
+id: smoke-01
+source: planted
+clean: false
+labels:
+- cwe: CWE-89
+  file: app/users.py
+  line_start: 7
+  line_end: 7
+notes: lookup_user builds SQL with an f-string from the name argument

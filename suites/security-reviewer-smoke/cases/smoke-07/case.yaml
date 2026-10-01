@@ -1,0 +1,5 @@
+id: smoke-07
+source: clean
+clean: true
+labels: []
+notes: extracts a helper and renames a variable; no behavior change

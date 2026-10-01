@@ -1,0 +1,9 @@
+id: smoke-06
+source: planted
+clean: false
+labels:
+- cwe: CWE-601
+  file: web/auth.py
+  line_start: 8
+  line_end: 8
+notes: login redirects to any next URL, including other hosts

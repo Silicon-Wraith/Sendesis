@@ -1,0 +1,58 @@
+diff --git a/src/index.ts b/src/index.ts
+index a5036e6..f1983fd 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -169,4 +169,29 @@ export function trainCase<
+     .join("-") as TrainCase<T, UserCaseOptions["normalize"]>;
+ }
+ 
++const titleCaseExceptions =
++  /^(a|an|and|as|at|but|by|for|if|in|is|nor|of|on|or|the|to|with)$/i;
++
++export function titleCase(): "";
++export function titleCase<
++  T extends string | readonly string[],
++  UserCaseOptions extends CaseOptions = CaseOptions,
++>(
++  str: T,
++  opts?: UserCaseOptions,
++): TrainCase<T, UserCaseOptions["normalize"], " ">;
++export function titleCase<
++  T extends string | readonly string[],
++  UserCaseOptions extends CaseOptions = CaseOptions,
++>(str?: T, opts?: UserCaseOptions) {
++  return (Array.isArray(str) ? str : splitByCase(str as string))
++    .filter(Boolean)
++    .map((p) =>
++      titleCaseExceptions.test(p)
++        ? p.toLowerCase()
++        : upperFirst(opts?.normalize ? p.toLowerCase() : p),
++    )
++    .join(" ") as TrainCase<T, UserCaseOptions["normalize"]>;
++}
++
+ export * from "./types";
+diff --git a/src/types.ts b/src/types.ts
+index deb3154..9e7f1dd 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -148,16 +148,17 @@ export type SnakeCase<T extends string | readonly string[]> = JoinByCase<
+ export type TrainCase<
+   T,
+   Normalize extends boolean | undefined = false,
++  Joiner extends string = "-",
+ > = string extends T
+   ? string
+   : string[] extends T
+     ? string
+     : T extends string
+       ? SplitByCase<T> extends readonly string[]
+-        ? CapitalizedWords<SplitByCase<T>, "-">
++        ? CapitalizedWords<SplitByCase<T>, Joiner>
+         : never
+       : T extends readonly string[]
+-        ? CapitalizedWords<T, "-", Normalize>
++        ? CapitalizedWords<T, Joiner, Normalize>
+         : never;
+ 
+ export type FlatCase<

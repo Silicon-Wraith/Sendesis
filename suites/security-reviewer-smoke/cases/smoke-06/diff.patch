@@ -1,0 +1,18 @@
+diff --git a/web/auth.py b/web/auth.py
+--- a/web/auth.py
++++ b/web/auth.py
+@@ -1,5 +1,3 @@
+-from urllib.parse import urlparse
+-
+ from flask import redirect, request
+ 
+ from .session import check_password, start_session
+@@ -7,7 +5,4 @@
+ 
+ def login_done(user):
+     start_session(user)
+-    target = request.args.get("next", "/")
+-    if urlparse(target).netloc or not target.startswith("/"):
+-        target = "/"
+-    return redirect(target)
++    return redirect(request.args.get("next", "/"))

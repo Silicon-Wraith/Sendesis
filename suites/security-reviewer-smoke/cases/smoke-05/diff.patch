@@ -1,0 +1,17 @@
+diff --git a/api/session.py b/api/session.py
+--- a/api/session.py
++++ b/api/session.py
+@@ -1,5 +1,5 @@
+ import base64
+-import json
++import pickle
+ 
+ from flask import request
+ 
+@@ -9,5 +9,5 @@
+     raw = request.cookies.get("ui_state")
+     if not raw:
+         return {}
+-    state = json.loads(base64.b64decode(raw))
++    state = pickle.loads(base64.b64decode(raw))
+     return state if isinstance(state, dict) else {}

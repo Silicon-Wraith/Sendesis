@@ -1,0 +1,10 @@
+id: clean-0009
+source: clean
+clean: true
+labels: []
+notes: "gives anonymous hook callbacks a descriptive function name for stack traces"
+provenance:
+  repo: https://github.com/unjs/hookable
+  commit: a4b0b54b9ac0f4405dbba62c064a911848d2f23b
+  license: MIT
+  reversed: false

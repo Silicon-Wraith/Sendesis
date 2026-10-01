@@ -42,3 +42,7 @@ notes: string-built SQL in lookup_user
 - Clean: ordinary changes with no security impact.
 
 Keep case contents out of any public repo if they come from private code.
+
+## Licenses
+
+Cases copied from upstream projects keep that project's license file at the case root (`LICENSE`, plus `NOTICE` where an Apache-2.0 project ships one), fetched at the commit recorded in `case.yaml` `provenance`. Only permissive licenses (MIT, BSD, ISC, Apache-2.0) are used, because this repo is public and MIT licensed. These files sit outside `context/`, so they never reach the model's prompt.

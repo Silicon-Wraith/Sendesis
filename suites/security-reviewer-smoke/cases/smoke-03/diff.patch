@@ -1,0 +1,13 @@
+diff --git a/web/files.py b/web/files.py
+--- a/web/files.py
++++ b/web/files.py
+@@ -9,7 +9,6 @@
+ @app.get("/download")
+ def download():
+     name = request.args.get("name", "")
+-    path = os.path.realpath(os.path.join(UPLOAD_DIR, name))
+-    if not path.startswith(UPLOAD_DIR + os.sep):
++    if not name:
+         abort(404)
+-    return send_file(path)
++    return send_file(os.path.join(UPLOAD_DIR, name))

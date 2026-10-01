@@ -1,0 +1,10 @@
+id: clean-0003
+source: clean
+clean: true
+labels: []
+notes: "type annotations added to cookiecutter() and the import-path context manager"
+provenance:
+  repo: https://github.com/cookiecutter/cookiecutter
+  commit: cd851dd1270e69efcc7de376e6ca67d4be4dbda2
+  license: BSD-3-Clause
+  reversed: false

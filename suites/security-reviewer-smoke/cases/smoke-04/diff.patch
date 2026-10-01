@@ -1,0 +1,14 @@
+diff --git a/static/comments.js b/static/comments.js
+--- a/static/comments.js
++++ b/static/comments.js
+@@ -2,9 +2,7 @@
+   list.replaceChildren();
+   for (const c of comments) {
+     const item = document.createElement("li");
+-    const author = document.createElement("b");
+-    author.textContent = c.author;
+-    item.append(author, `: ${c.body}`);
++    item.innerHTML = `<b>${c.author}</b>: ${c.body}`;
+     list.append(item);
+   }
+ }
