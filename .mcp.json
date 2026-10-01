@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "reasonhold": {"command": ".venv/bin/reasonhold", "args": ["mcp"]}
+  }
+}

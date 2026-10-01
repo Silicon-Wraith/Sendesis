@@ -2,7 +2,7 @@
 
 Sendesis qualifies AI execution profiles for engineering roles, fails over only to qualified profiles when a provider is down, and runs cross-model review loops only where a gate has shown they beat cheaper baselines.
 
-Read `docs/PLAN.md` before starting any phase. It is the source of truth for scope and exit criteria.
+Read `docs/specs/2026-09-30-system-vision-design.md` before starting work. It is the source of truth for scope and the roadmap. `docs/PLAN.md` is history: several of its sections are retracted (run `.venv/bin/reasonhold govern docs/PLAN.md`), and its capability ledger, suite and gate design, kill criteria and Spike 0 results still hold.
 
 ## Hard constraints
 
@@ -42,7 +42,7 @@ tests/        unit tests (mocked runners) and integration tests (real calls)
 
 - Python 3.11+, a venv in `.venv`, dependencies in `pyproject.toml`. No global installs.
 - Unit tests mock runners. Real CLI calls go only in tests marked `@pytest.mark.integration`, run on purpose, because they spend subscription quota.
-- Stop at the end of each phase in `docs/PLAN.md`, show the exit criterion evidence, and wait for review.
+- Stop at the end of each milestone or plan, show the exit criterion evidence, and wait for review.
 - Receipts and reports are data, committed to git. Never edit a receipt by hand.
 - Prefer small, boring code. The engine's value is in D2 (receipts) and D8 (the gate). Everything else should stay thin.
 - In docs and user-facing text, do not use em dashes.
