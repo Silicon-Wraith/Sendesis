@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from agno.metrics import MessageMetrics
-from agno_cli_models._base import CliModel
+from agno_cli_models import CliModel
 
 
 @dataclass
