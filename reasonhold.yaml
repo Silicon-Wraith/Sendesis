@@ -8,6 +8,7 @@ global:
   checks: [qualification-engine]
   docs:
     - docs/specs/2026-09-30-system-vision-design.md
+    - docs/specs/2026-10-01-sendesis-m3-design.md
     - CLAUDE.md
     - docs/PLAN.md
   archival:
@@ -51,7 +52,7 @@ checks:
   qualification-engine:
     description: The engine follows the system vision spec's qualification, receipt and gate design
     mode: index
-    reads: [docs/specs/2026-09-30-system-vision-design.md]
+    reads: [docs/specs/2026-09-30-system-vision-design.md, docs/specs/2026-10-01-sendesis-m3-design.md]
     validates_against: [src/sendesis/, tests/]
   runner-requirements:
     description: Runners follow CLAUDE.md's runner requirements from Spike 0
