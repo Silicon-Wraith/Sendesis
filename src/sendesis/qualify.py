@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from sendesis import runners
+from agno_cli_models.versions import parse_version
 from sendesis.model import Profile, Role, ValidationFailed, load_profile, load_role, schema_validator
 from sendesis.receipts import iso, write_receipt
 from sendesis.runners import Call, RunResult, Status
@@ -126,7 +127,7 @@ def qualify(
     reasons: list[str] = []
     installed = version_fn(profile.cli_binary) if profile.cli_binary else None
     pin = profile.model.cli_version
-    if profile.cli_binary and (installed or "").split(" ")[0] != (pin or "").split(" ")[0]:
+    if profile.cli_binary and parse_version(installed or "") != parse_version(pin or ""):
         reasons.append(f"installed cli version {installed!r} does not match profile pin {pin!r}; no calls made")
 
     outcomes: list[CaseOutcome] = []

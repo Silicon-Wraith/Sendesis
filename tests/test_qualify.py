@@ -120,6 +120,18 @@ def test_changed_cli_version_gives_unknown_without_spending_calls(qroot):
     assert validate_receipt(qroot, r) == []
 
 
+@pytest.mark.parametrize("profile,installed,proceeds", [
+    ("codex-gpt", "codex-cli 0.155.1", True),
+    ("codex-gpt", "codex-cli 0.155.2", False),
+    ("claude-opus", "2.1.281 (Claude Code)", True),
+])
+def test_version_pin_compares_parsed_versions(qroot, profile, installed, proceeds):
+    runner = FakeRunner()
+    r = run_qualify(qroot, runner, version=installed, profile=profile).receipt
+    assert bool(runner.calls) is proceeds
+    assert ("does not match profile pin" in (r.get("status_reason") or "")) is (not proceeds)
+
+
 def test_too_few_cases_gives_unknown(qroot):
     edit_yaml(qroot / "roles" / "security-reviewer.yaml", lambda d: d["qualification"].update(min_cases=100))
     r = run_qualify(qroot, FakeRunner()).receipt

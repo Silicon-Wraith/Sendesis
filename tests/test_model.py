@@ -28,8 +28,6 @@ def test_role_prompt_is_hashed_from_raw_bytes(root: Path):
     assert role.prompt_sha256 == hashlib.sha256(raw).hexdigest()
 
 
-
-
 def test_missing_required_field_fails_with_readable_message(root: Path):
     path = root / "roles" / "security-reviewer.yaml"
     edit_yaml(path, lambda d: d.pop("purpose"))
@@ -37,10 +35,6 @@ def test_missing_required_field_fails_with_readable_message(root: Path):
         load_role(path, root)
     messages = exc.value.messages
     assert any("roles/security-reviewer.yaml" in m and "'purpose' is a required property" in m for m in messages)
-
-
-
-
 
 
 def test_yaml_syntax_error_fails_readably(root: Path):
@@ -65,10 +59,6 @@ def test_profile_hash_matches_canonical_hash_of_file(root: Path):
     path = root / "profiles" / "claude-opus.yaml"
     profile = load_profile(path, root)
     assert profile.sha256 == canonical_sha256(path.read_text(encoding="utf-8"))
-
-
-
-
 
 
 def test_role_without_prompt_file_fails_schema(root: Path):

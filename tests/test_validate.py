@@ -52,14 +52,10 @@ def test_id_must_match_file_name(root: Path):
     assert any("claude-opus.yaml" in e and "file name" in e for e in errors)
 
 
-
-
 def test_disabled_profile_with_placeholder_family_warns(root: Path):
     report = validate_repo(root)
     assert report.errors == []
     assert any("vllm-local.yaml" in w and "family" in w for w in report.warnings)
-
-
 
 
 def test_single_family_failover_warns_while_disabled_profiles_remain(root: Path):

@@ -16,7 +16,6 @@ from sendesis.model import CLI_CLASSES, Profile, Role, ValidationFailed, rel_pat
 
 SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json")
 PLACEHOLDER = "set-me"
-# The official CLIs only reach one vendor each, so their family is fixed.
 
 
 @dataclass
@@ -71,6 +70,7 @@ def _check_profile(p: Profile, root: Path, report: Report) -> None:
             else:
                 report.warnings.append(f"{msg}; set it before enabling")
     if p.model.cls in CLI_CLASSES:
+        # The official CLIs only reach one vendor each, so their family is fixed.
         binary, family = CLI_CLASSES[p.model.cls]
         if p.family != family:
             report.errors.append(f"{where}: model class {p.model.cls} reaches family '{family}', but family is '{p.family}'")
