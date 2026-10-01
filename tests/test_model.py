@@ -28,13 +28,6 @@ def test_role_prompt_is_hashed_from_raw_bytes(root: Path):
     assert role.prompt_sha256 == hashlib.sha256(raw).hexdigest()
 
 
-def test_profile_loads_as_dataclass(root: Path):
-    profile = load_profile(root / "profiles" / "codex-gpt.yaml", root)
-    assert profile.id == "codex-gpt"
-    assert profile.runner == "codex_cli"
-    assert profile.family == "openai"
-    assert profile.sandbox == "read-only"
-    assert profile.enabled is True
 
 
 def test_missing_required_field_fails_with_readable_message(root: Path):
@@ -46,20 +39,8 @@ def test_missing_required_field_fails_with_readable_message(root: Path):
     assert any("roles/security-reviewer.yaml" in m and "'purpose' is a required property" in m for m in messages)
 
 
-def test_codex_profile_without_sandbox_fails(root: Path):
-    path = root / "profiles" / "codex-gpt.yaml"
-    edit_yaml(path, lambda d: d.pop("sandbox"))
-    with pytest.raises(ValidationFailed) as exc:
-        load_profile(path, root)
-    assert any("'sandbox' is a required property" in m for m in exc.value.messages)
 
 
-def test_codex_profile_cannot_use_danger_full_access(root: Path):
-    path = root / "profiles" / "codex-gpt.yaml"
-    edit_yaml(path, lambda d: d.update(sandbox="danger-full-access"))
-    with pytest.raises(ValidationFailed) as exc:
-        load_profile(path, root)
-    assert any("sandbox" in m for m in exc.value.messages)
 
 
 def test_yaml_syntax_error_fails_readably(root: Path):
@@ -86,20 +67,8 @@ def test_profile_hash_matches_canonical_hash_of_file(root: Path):
     assert profile.sha256 == canonical_sha256(path.read_text(encoding="utf-8"))
 
 
-def test_profile_endpoint_must_be_a_uri(root: Path):
-    path = root / "profiles" / "vllm-local.yaml"
-    edit_yaml(path, lambda d: d.update(endpoint="127.0.0.1 port 8000"))
-    with pytest.raises(ValidationFailed) as exc:
-        load_profile(path, root)
-    assert any("endpoint" in m and "uri" in m for m in exc.value.messages)
 
 
-def test_claude_profile_without_reasoning_effort_fails(root: Path):
-    path = root / "profiles" / "claude-opus.yaml"
-    edit_yaml(path, lambda d: d.pop("reasoning_effort"))
-    with pytest.raises(ValidationFailed) as exc:
-        load_profile(path, root)
-    assert any("'reasoning_effort' is a required property" in m for m in exc.value.messages)
 
 
 def test_role_without_prompt_file_fails_schema(root: Path):
@@ -113,3 +82,38 @@ def test_role_without_prompt_file_fails_schema(root: Path):
 def test_role_budget_timeout_is_loaded(root: Path):
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     assert role.per_call_timeout_s == 300
+
+
+def test_profile_v2_loads_model_spec(root: Path):
+    profile = load_profile(root / "profiles" / "codex-gpt.yaml", root)
+    assert profile.id == "codex-gpt" and profile.family == "openai" and profile.enabled is True
+    assert profile.model.cls == "codex" and profile.model.id == "gpt-5.6-sol" and profile.model.effort == "high"
+    assert profile.cli_binary == "codex" and profile.model.cli_version
+
+
+def test_openai_like_profile_has_base_url_and_no_cli(root: Path):
+    profile = load_profile(root / "profiles" / "ollama-local.yaml", root)
+    assert profile.model.cls == "openai_like" and profile.model.base_url == "http://127.0.0.1:11434/v1"
+    assert profile.cli_binary is None
+
+
+def test_profile_v1_fields_are_rejected(root: Path):
+    path = root / "profiles" / "codex-gpt.yaml"
+    edit_yaml(path, lambda d: d.update(sandbox="danger-full-access"))
+    with pytest.raises(ValidationFailed) as exc:
+        load_profile(path, root)
+    assert any("sandbox" in m for m in exc.value.messages)
+
+
+def test_profile_model_class_must_be_known(root: Path):
+    path = root / "profiles" / "codex-gpt.yaml"
+    edit_yaml(path, lambda d: d["model"].update({"class": "codex_cli"}))
+    with pytest.raises(ValidationFailed) as exc:
+        load_profile(path, root)
+    assert any("model/class" in m for m in exc.value.messages)
+
+
+def test_agno_provider_class_is_accepted(root: Path):
+    path = root / "profiles" / "vllm-local.yaml"
+    edit_yaml(path, lambda d: d.update(model={"class": "agno:anthropic:Claude", "id": "claude-x"}))
+    assert load_profile(path, root).model.cls == "agno:anthropic:Claude"

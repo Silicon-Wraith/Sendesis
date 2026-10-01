@@ -125,8 +125,9 @@ def qualify(
 
     reasons: list[str] = []
     installed = version_fn(profile.cli_binary) if profile.cli_binary else None
-    if profile.cli_binary and installed != profile.cli_version:
-        reasons.append(f"installed cli version {installed!r} does not match profile pin {profile.cli_version!r}; no calls made")
+    pin = profile.model.cli_version
+    if profile.cli_binary and (installed or "").split(" ")[0] != (pin or "").split(" ")[0]:
+        reasons.append(f"installed cli version {installed!r} does not match profile pin {pin!r}; no calls made")
 
     outcomes: list[CaseOutcome] = []
     results: list[RunResult] = []
@@ -148,9 +149,9 @@ def qualify(
                     break
 
     models = sorted({r.model for r in results if r.status is Status.OK and r.model})
-    wrong = [m for m in models if m != profile.model]
+    wrong = [m for m in models if m != profile.model.id]
     if wrong:
-        reasons.append(f"observed model {', '.join(wrong)}, profile wants {profile.model}")
+        reasons.append(f"observed model {', '.join(wrong)}, profile wants {profile.model.id}")
 
     scores = []
     if outcomes:

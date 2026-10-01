@@ -85,13 +85,12 @@ def find_rollout(home: Path, thread_id: str) -> Path | None:
 def build_argv(profile: Profile, call: Call, *, schema_path: Path) -> list[str]:
     return [
         profile.cli_binary or "codex", "exec", "--json",
-        "-m", profile.model,
-        "-c", f'model_reasoning_effort="{profile.reasoning_effort}"',
-        "--sandbox", profile.sandbox,
+        "-m", profile.model.id,
+        "-c", f'model_reasoning_effort="{profile.model.effort}"',
+        "--sandbox", "read-only",  # transitional: the sandbox now comes from the role
         *FIXED_FLAGS,
         "-C", str(call.workdir),
         "--output-schema", str(schema_path),
-        *profile.extra_args,
         call.prompt,
     ]
 

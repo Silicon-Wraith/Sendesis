@@ -110,6 +110,19 @@ class Role:
     raw: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
 
+CLI_CLASSES = {"claude_code": ("claude", "anthropic"), "codex": ("codex", "openai")}
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    cls: str
+    id: str
+    effort: str | None = None
+    base_url: str | None = None
+    api_key_env: str | None = None
+    cli_version: str | None = None
+
+
 @dataclass(frozen=True)
 class Profile:
     path: Path
@@ -117,17 +130,14 @@ class Profile:
     id: str
     enabled: bool
     family: str
-    runner: str
-    model: str
+    model: ModelSpec
     timeout_s: int
-    reasoning_effort: str | None = None
-    cli_binary: str | None = None
-    cli_version: str | None = None
-    endpoint: str | None = None
-    sandbox: str | None = None
-    extra_args: tuple[str, ...] = ()
     max_turns: int | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
+
+    @property
+    def cli_binary(self) -> str | None:
+        return CLI_CLASSES.get(self.model.cls, (None, None))[0]
 
 
 def load_role(path: Path, root: Path) -> Role:
@@ -161,22 +171,18 @@ def load_role(path: Path, root: Path) -> Role:
 
 def load_profile(path: Path, root: Path) -> Profile:
     data, sha = _load_checked(path, root, "profile.json")
-    cli = data.get("cli", {})
+    m = data["model"]
     return Profile(
         path=path,
         sha256=sha,
         id=data["id"],
         enabled=data["enabled"],
         family=data["family"],
-        runner=data["runner"],
-        model=data["model"],
+        model=ModelSpec(
+            cls=m["class"], id=m["id"], effort=m.get("effort"), base_url=m.get("base_url"),
+            api_key_env=m.get("api_key_env"), cli_version=m.get("cli_version"),
+        ),
         timeout_s=data["timeout_s"],
-        reasoning_effort=data.get("reasoning_effort"),
-        cli_binary=cli.get("binary"),
-        cli_version=cli.get("version"),
-        endpoint=data.get("endpoint"),
-        sandbox=data.get("sandbox"),
-        extra_args=tuple(data.get("extra_args", [])),
         max_turns=data.get("max_turns"),
         raw=data,
     )

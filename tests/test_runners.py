@@ -208,7 +208,8 @@ def local_server():
 
 def _http_profile(endpoint):
     from dataclasses import replace
-    return replace(profile("vllm-local"), endpoint=endpoint, model="qwen-test", enabled=True)
+    p = profile("vllm-local")
+    return replace(p, model=replace(p.model, base_url=endpoint, id="qwen-test"), enabled=True)
 
 
 def test_openai_http_posts_chat_completion_with_json_schema(local_server, tmp_path):

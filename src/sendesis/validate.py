@@ -12,12 +12,11 @@ from pathlib import Path
 
 from jsonschema.exceptions import SchemaError
 
-from sendesis.model import Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
+from sendesis.model import CLI_CLASSES, Profile, Role, ValidationFailed, rel_path, load_profile, load_role, schema_validator
 
 SCHEMAS = ("role.json", "profile.json", "receipt.json", "finding.json")
 PLACEHOLDER = "set-me"
 # The official CLIs only reach one vendor each, so their family is fixed.
-RUNNER_FAMILY = {"claude_cli": "anthropic", "codex_cli": "openai"}
 
 
 @dataclass
@@ -64,16 +63,21 @@ def _load_all(root: Path, folder: str, loader, report: Report) -> dict:
 
 def _check_profile(p: Profile, root: Path, report: Report) -> None:
     where = rel_path(p.path, root)
-    for key in ("family", "model"):
-        if getattr(p, key) == PLACEHOLDER:
-            msg = f"{where}: {key} is the placeholder '{PLACEHOLDER}'"
+    for label, value in (("family", p.family), ("model.id", p.model.id)):
+        if value == PLACEHOLDER:
+            msg = f"{where}: {label} is the placeholder '{PLACEHOLDER}'"
             if p.enabled:
                 report.errors.append(f"{msg} but the profile is enabled")
             else:
                 report.warnings.append(f"{msg}; set it before enabling")
-    expected = RUNNER_FAMILY.get(p.runner)
-    if expected and p.family != expected:
-        report.errors.append(f"{where}: runner {p.runner} reaches family '{expected}', but family is '{p.family}'")
+    if p.model.cls in CLI_CLASSES:
+        binary, family = CLI_CLASSES[p.model.cls]
+        if p.family != family:
+            report.errors.append(f"{where}: model class {p.model.cls} reaches family '{family}', but family is '{p.family}'")
+        if not p.model.cli_version:
+            report.errors.append(f"{where}: model class {p.model.cls} needs model.cli_version (the {binary} version it was set up with)")
+    if p.model.cls == "openai_like" and not p.model.base_url:
+        report.errors.append(f"{where}: model class openai_like needs model.base_url")
 
 
 def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str], root: Path, report: Report) -> None:

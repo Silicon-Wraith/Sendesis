@@ -46,13 +46,12 @@ def build_argv(profile: Profile, capabilities: tuple[str, ...], call: Call) -> l
             raise ValueError(f"capability '{cap}' is not available to claude_cli review runs")
         tools.extend(TOOL_MAP[cap])
     tool_list = ",".join(tools)
-    argv = [profile.cli_binary or "claude", "-p", call.prompt, "--model", profile.model, "--effort", profile.reasoning_effort]
+    argv = [profile.cli_binary or "claude", "-p", call.prompt, "--model", profile.model.id, "--effort", profile.model.effort]
     argv += ["--tools", tool_list]
     if tools:
         argv += ["--allowedTools", tool_list]
     argv += FIXED_FLAGS
     argv += ["--json-schema", json.dumps(schema_without_meta(call.schema))]
-    argv += list(profile.extra_args)
     return argv
 
 

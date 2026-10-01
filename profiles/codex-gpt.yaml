@@ -1,16 +1,13 @@
 id: codex-gpt
 enabled: true
 family: openai
-runner: codex_cli
-model: gpt-5.6-sol          # the default Spike 0 observed; pin it explicitly with -m
-reasoning_effort: high
-cli:
-  binary: codex
-  version: "codex-cli 0.155.1"   # exact output of `codex --version`
-sandbox: read-only
+model:
+  class: codex
+  id: gpt-5.6-sol
+  effort: high
+  cli_version: "0.155.1"     # parsed `codex --version`; set from Step 4's output
 timeout_s: 300
 notes: >-
-  Run inside the suite's git-initialized workdir. Pass stdin=DEVNULL.
-  The model is confirmed from the stderr header ("model: ..."), since
-  --json output does not report it. Needs the bwrap AppArmor profile on
-  Ubuntu 24.04 for the sandbox to run commands.
+  Reached through agno-cli-models (codex app-server) with the CLI's own login.
+  The sandbox comes from the role: reviewers run read-only. Needs the bwrap
+  AppArmor profile on Ubuntu 24.04.

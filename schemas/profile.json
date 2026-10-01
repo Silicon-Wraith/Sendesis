@@ -1,53 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sendesis.dev/schemas/profile.json",
-  "title": "Execution profile",
-  "description": "Everything that decides how a call is made. Receipts record a hash of this file plus the observed CLI version and model; any drift makes the receipt UNKNOWN.",
+  "title": "Execution profile v2",
+  "description": "How a model is reached. Sandbox and tools come from the role and the stage, never from the profile.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "family", "runner", "model", "timeout_s", "enabled"],
+  "required": ["id", "enabled", "family", "model", "timeout_s"],
   "properties": {
-    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "enabled": {"type": "boolean"},
-    "family": {
-      "type": "string",
-      "description": "Model family used for cross-family checks, e.g. anthropic, openai, qwen, llama."
-    },
-    "runner": {"enum": ["claude_cli", "codex_cli", "openai_http"]},
-    "model": {"type": "string", "minLength": 1},
-    "reasoning_effort": {"type": "string", "description": "Passed explicitly. Both CLIs default high if unset."},
-    "cli": {
+    "family": {"type": "string", "minLength": 1, "description": "Model family for diversity rules, e.g. anthropic, openai, qwen."},
+    "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["binary", "version"],
+      "required": ["class", "id"],
       "properties": {
-        "binary": {"type": "string"},
-        "version": {"type": "string", "description": "Exact version string the receipt is valid for, as printed by --version."}
+        "class": {
+          "type": "string",
+          "pattern": "^(claude_code|codex|openai_like|agno:[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*)$",
+          "description": "claude_code and codex use agno-cli-models; openai_like uses Agno's OpenAILike; agno:<module>:<Class> is any Agno model class under agno.models.<module>."
+        },
+        "id": {"type": "string", "minLength": 1},
+        "effort": {"type": "string", "minLength": 1},
+        "base_url": {"type": "string", "pattern": "^https?://"},
+        "api_key_env": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"},
+        "cli_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+"}
       }
     },
-    "endpoint": {"type": "string", "format": "uri", "description": "openai_http only. Base URL ending in /v1."},
-    "sandbox": {"enum": ["read-only", "workspace-write"], "description": "codex_cli only. danger-full-access is deliberately not allowed."},
-    "extra_args": {"type": "array", "items": {"type": "string"}},
-    "timeout_s": {"type": "integer", "minimum": 5, "description": "Hard wall-clock limit enforced by the orchestrator. A timeout with no output is a failover trigger."},
+    "timeout_s": {"type": "integer", "minimum": 1},
     "max_turns": {"type": "integer", "minimum": 1},
     "notes": {"type": "string"}
-  },
-  "allOf": [
-    {
-      "if": {"properties": {"runner": {"enum": ["claude_cli", "codex_cli"]}}},
-      "then": {"required": ["cli"]}
-    },
-    {
-      "if": {"properties": {"runner": {"const": "openai_http"}}},
-      "then": {"required": ["endpoint"]}
-    },
-    {
-      "if": {"properties": {"runner": {"const": "codex_cli"}}},
-      "then": {"required": ["sandbox", "reasoning_effort"]}
-    },
-    {
-      "if": {"properties": {"runner": {"const": "claude_cli"}}},
-      "then": {"required": ["reasoning_effort"]}
-    }
-  ]
+  }
 }

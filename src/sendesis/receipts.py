@@ -71,10 +71,10 @@ def effective_status(
         reasons.append("suite changed")
     if obs.get("runner_config_sha256") != runner_config_sha256:
         reasons.append("runner config changed")
-    if profile.runner != "openai_http" and obs.get("cli_version") != cli_version:
+    if profile.cli_binary and obs.get("cli_version") != cli_version:
         reasons.append(f"cli version {obs.get('cli_version')!r} -> {cli_version!r}")
-    if obs.get("model") != profile.model:
-        reasons.append(f"model observed {obs.get('model')!r}, profile now wants {profile.model!r}")
+    if obs.get("model") != profile.model.id:
+        reasons.append(f"model observed {obs.get('model')!r}, profile now wants {profile.model.id!r}")
     if now >= parse_iso(receipt["expires_at"]):
         reasons.append(f"expired at {receipt['expires_at']}")
     return ("UNKNOWN", reasons) if reasons else (receipt["status"], [])

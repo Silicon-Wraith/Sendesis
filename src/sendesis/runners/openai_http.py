@@ -18,17 +18,17 @@ def config_sha256() -> str:
 
 def run(profile: Profile, call: Call) -> RunResult:
     body = {
-        "model": profile.model,
+        "model": profile.model.id,
         "messages": [{"role": "user", "content": call.prompt}],
         "response_format": {
             "type": "json_schema",
             "json_schema": {"name": "findings", "schema": schema_without_meta(call.schema)},
         },
     }
-    if profile.reasoning_effort:
-        body["reasoning_effort"] = profile.reasoning_effort
+    if profile.model.effort:
+        body["reasoning_effort"] = profile.model.effort
     request = urllib.request.Request(
-        profile.endpoint.rstrip("/") + "/chat/completions",
+        profile.model.base_url.rstrip("/") + "/chat/completions",
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json"},
     )
