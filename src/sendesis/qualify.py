@@ -24,7 +24,7 @@ from typing import Any, Callable
 from sendesis import runners
 from agno_cli_models.versions import parse_version
 from sendesis.model import Profile, Role, ValidationFailed, load_profile, load_role, schema_validator
-from sendesis.receipts import iso, write_receipt
+from sendesis.receipts import current_fingerprint, iso, write_receipt
 from sendesis.runners import Call, RunResult, Status
 from sendesis.runners.codex_cli import codex_home
 from sendesis.scoring import CaseOutcome, compute_metrics, passes
@@ -166,7 +166,7 @@ def qualify(
                 continue
             scores.append({
                 "metric": m.name, "value": round(score.value, 6), "ci_low": round(score.ci_low, 6), "ci_high": round(score.ci_high, 6),
-                "ci_method": score.ci_method, "threshold": m.threshold, "pass": passes(score, m.direction, m.threshold, m.basis),
+                "ci_method": score.ci_method, "basis": m.basis, "threshold": m.threshold, "pass": passes(score, m.direction, m.threshold, m.basis),
             })
     if outcomes and len(suite.cases) < role.qualification.min_cases:
         reasons.append(f"suite has {len(suite.cases)} cases, role requires at least {role.qualification.min_cases}")
@@ -180,7 +180,7 @@ def qualify(
         reasons.append("failed: " + ", ".join(s["metric"] for s in scores if not s["pass"]))
 
     observed = {"profile_id": profile.id, "model": models[0] if len(models) == 1 else (",".join(models) or "not-observed"),
-                "runner_config_sha256": runners.config_sha256(profile), "workdir_context_sha256": workdir_context_sha256(workdir)}
+                "config_fingerprint": current_fingerprint(profile, role), "workdir_context_sha256": workdir_context_sha256(workdir)}
     if installed:
         observed["cli_version"] = installed
     list_usd = [r.list_usd for r in results if r.list_usd is not None]

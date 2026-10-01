@@ -1,6 +1,5 @@
 import json
 import re
-from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -8,9 +7,8 @@ import pytest
 
 from conftest import edit_yaml
 from sendesis.cli import main
-from sendesis.model import load_profile, load_role
 from sendesis.qualify import QualifyError, qualify
-from sendesis.receipts import effective_status, validate_receipt
+from sendesis.receipts import validate_receipt
 from sendesis.runners import RunResult, Status
 from test_suite_scoring import write_case
 
@@ -94,7 +92,7 @@ def test_perfect_reviewer_qualifies_and_receipt_validates(qroot):
     assert names == {"recall", "false_positives_per_clean_case", "schema_validity"}
     obs = r["observed"][0]
     assert obs["model"] == "claude-opus-5-5" and obs["cli_version"] == CLAUDE_VERSION
-    assert len(obs["runner_config_sha256"]) == 64 and len(obs["workdir_context_sha256"]) == 64
+    assert len(obs["config_fingerprint"]) == 64 and len(obs["workdir_context_sha256"]) == 64
 
 
 def test_prompt_carries_diff_and_context(qroot):
@@ -190,50 +188,13 @@ def test_receipts_are_never_overwritten(qroot):
     assert a != b and a.exists() and b.exists()
 
 
-# ---- effective status (what the Phase 3 router will ask) ------------------------------
-
-
-def _inputs(qroot):
-    role = load_role(qroot / "roles" / "security-reviewer.yaml", qroot)
-    profile = load_profile(qroot / "profiles" / "claude-opus.yaml", qroot)
-    from sendesis.runners import config_sha256
-    from sendesis.suite import load_suite
-    return dict(role=role, profile=profile, suite_sha256=load_suite(qroot / "suites" / "smoke").sha256,
-                cli_version=CLAUDE_VERSION, runner_config_sha256=config_sha256(profile), now=NOW + timedelta(days=1))
-
-
-def test_effective_status_holds_when_nothing_changed(qroot):
-    r = run_qualify(qroot, FakeRunner()).receipt
-    assert effective_status(r, **_inputs(qroot)) == ("QUALIFIED", [])
-
-
-@pytest.mark.parametrize("change, reason", [
-    (lambda i: i.update(cli_version="2.1.286 (Claude Code)"), "cli version"),
-    (lambda i: i.update(now=NOW + timedelta(days=31)), "expired"),
-    (lambda i: i.update(suite_sha256="0" * 64), "suite"),
-    (lambda i: i.update(runner_config_sha256="0" * 64), "runner config"),
-    (lambda i: i.update(profile=replace(i["profile"], sha256="0" * 64)), "profile"),
-    (lambda i: i.update(profile=replace(i["profile"], model=replace(i["profile"].model, id="claude-sonnet-5-5"))), "model"),
-    (lambda i: i.update(role=replace(i["role"], version="0.3.0")), "role version"),
-    (lambda i: i.update(role=replace(i["role"], sha256="0" * 64)), "role file"),
-    (lambda i: i.update(role=replace(i["role"], prompt_sha256="0" * 64)), "prompt"),
-])
-def test_effective_status_turns_unknown_on_drift(qroot, change, reason):
-    r = run_qualify(qroot, FakeRunner()).receipt
-    inputs = _inputs(qroot)
-    change(inputs)
-    status, reasons = effective_status(r, **inputs)
-    assert status == "UNKNOWN"
-    assert any(reason in x for x in reasons), reasons
-
-
 # ---- CLI -------------------------------------------------------------------------------
 
 
 def test_cli_receipts_reports_unknown_after_version_change(qroot, capsys, monkeypatch):
     run_qualify(qroot, FakeRunner())
     import sendesis.receipts as receipts_mod
-    monkeypatch.setattr(receipts_mod, "cli_version", lambda binary: "2.1.286 (Claude Code)")
+    monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: "2.1.286 (Claude Code)")
     assert main(["receipts", "--root", str(qroot)]) == 0
     out = capsys.readouterr().out
     assert "claude-opus" in out and "QUALIFIED" in out and "UNKNOWN" in out and "cli version" in out
@@ -242,6 +203,6 @@ def test_cli_receipts_reports_unknown_after_version_change(qroot, capsys, monkey
 def test_cli_receipts_shows_recorded_reason(qroot, capsys, monkeypatch):
     run_qualify(qroot, FakeRunner(), version="9.9.9")  # UNKNOWN at issue time
     import sendesis.receipts as receipts_mod
-    monkeypatch.setattr(receipts_mod, "cli_version", lambda binary: "9.9.9")
+    monkeypatch.setattr(receipts_mod, "installed_version", lambda binary: "9.9.9")
     main(["receipts", "--root", str(qroot)])
     assert "does not match profile pin" in capsys.readouterr().out

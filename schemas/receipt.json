@@ -34,10 +34,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["profile_id", "model", "runner_config_sha256"],
+        "required": ["profile_id", "model", "config_fingerprint"],
         "properties": {
           "profile_id": {"type": "string"},
-          "runner_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Hash of the runner's fixed flags and environment policy. Isolation flags change token overhead, so a change voids the receipt."},
+          "runner_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Phase 2 runner flags hash. Superseded by config_fingerprint; kept so old receipts still validate."},
+          "config_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "The model class's config_fingerprint(): isolation and permission settings in force."},
           "cli_version": {"type": "string"},
           "model": {"type": "string", "description": "Model actually reported by the runner, not the requested one."},
           "workdir_context_sha256": {"type": "string", "description": "Hash of AGENTS.md / CLAUDE.md in the suite working directory."}
@@ -61,9 +62,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["metric", "value", "ci_low", "ci_high", "threshold", "pass"],
+        "required": ["metric", "value", "ci_low", "ci_high", "threshold", "pass", "basis"],
         "properties": {
           "metric": {"type": "string"},
+          "basis": {"enum": ["interval", "point"]},
           "arm": {"type": "string", "description": "team_gate only: cross_model_loop, same_model_loop, single_pass, n_sample_vote."},
           "rounds": {"type": "integer", "minimum": 1},
           "value": {"type": "number"},
