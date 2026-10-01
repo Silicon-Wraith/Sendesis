@@ -104,6 +104,7 @@ class Role:
     metrics: tuple[Metric, ...]
     failover_order: tuple[str, ...]
     team_mode: str
+    per_call_timeout_s: int | None = None
     prompt_file: str | None = None
     prompt_sha256: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
@@ -151,6 +152,7 @@ def load_role(path: Path, root: Path) -> Role:
         metrics=tuple(Metric(m["name"], m["direction"], m["threshold"]) for m in q["metrics"]),
         failover_order=tuple(data["failover_order"]),
         team_mode=data["team"]["mode"],
+        per_call_timeout_s=data.get("budgets", {}).get("per_call_timeout_s"),
         prompt_file=prompt_file,
         prompt_sha256=file_sha256(prompt_path) if prompt_path and prompt_path.is_file() else None,
         raw=data,

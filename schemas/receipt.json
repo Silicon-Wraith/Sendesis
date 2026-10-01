@@ -11,10 +11,11 @@
     "role": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "version", "prompt_sha256"],
+      "required": ["id", "version", "sha256", "prompt_sha256"],
       "properties": {
         "id": {"type": "string"},
         "version": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Canonical hash of the role file, so an edit without a version bump still voids the receipt."},
         "prompt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
       }
     },
@@ -33,9 +34,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["profile_id", "model"],
+        "required": ["profile_id", "model", "runner_config_sha256"],
         "properties": {
           "profile_id": {"type": "string"},
+          "runner_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "Hash of the runner's fixed flags and environment policy. Isolation flags change token overhead, so a change voids the receipt."},
           "cli_version": {"type": "string"},
           "model": {"type": "string", "description": "Model actually reported by the runner, not the requested one."},
           "workdir_context_sha256": {"type": "string", "description": "Hash of AGENTS.md / CLAUDE.md in the suite working directory."}

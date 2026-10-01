@@ -23,7 +23,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers"
+addopts = "--strict-markers -m 'not integration'"
 markers = [
     "integration: makes real CLI or HTTP model calls and spends subscription quota; run on purpose only",
 ]

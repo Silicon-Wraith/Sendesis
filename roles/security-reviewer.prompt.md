@@ -6,7 +6,7 @@ You will receive a unified diff and, optionally, the full contents of the files 
 
 For each vulnerability:
 
-- Give the file and line range.
+- Give the file and line range. Line numbers refer to the file after the change: the new side of the diff, which is also what the context files contain.
 - Give a category. Use a CWE id where one fits, for example `CWE-89`.
 - Give a severity: critical, high, medium, low, or info.
 - Quote the code that shows the problem as evidence. If you reasoned about data flow, add that reasoning as a second evidence item.

@@ -44,6 +44,10 @@
     {
       "if": {"properties": {"runner": {"const": "codex_cli"}}},
       "then": {"required": ["sandbox", "reasoning_effort"]}
+    },
+    {
+      "if": {"properties": {"runner": {"const": "claude_cli"}}},
+      "then": {"required": ["reasoning_effort"]}
     }
   ]
 }

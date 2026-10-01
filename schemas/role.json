@@ -5,7 +5,7 @@
   "description": "What a role must do, independent of which model does it. A change to any field below requires a version bump, which voids existing receipts.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "purpose", "inputs", "definition_of_done", "output_schema", "tools", "model_requirements", "qualification", "failover_order", "team"],
+  "required": ["id", "version", "purpose", "prompt_file", "inputs", "definition_of_done", "output_schema", "tools", "model_requirements", "qualification", "failover_order", "team"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
     "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},

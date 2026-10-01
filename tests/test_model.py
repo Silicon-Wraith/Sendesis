@@ -92,3 +92,24 @@ def test_profile_endpoint_must_be_a_uri(root: Path):
     with pytest.raises(ValidationFailed) as exc:
         load_profile(path, root)
     assert any("endpoint" in m and "uri" in m for m in exc.value.messages)
+
+
+def test_claude_profile_without_reasoning_effort_fails(root: Path):
+    path = root / "profiles" / "claude-opus.yaml"
+    edit_yaml(path, lambda d: d.pop("reasoning_effort"))
+    with pytest.raises(ValidationFailed) as exc:
+        load_profile(path, root)
+    assert any("'reasoning_effort' is a required property" in m for m in exc.value.messages)
+
+
+def test_role_without_prompt_file_fails_schema(root: Path):
+    path = root / "roles" / "security-reviewer.yaml"
+    edit_yaml(path, lambda d: d.pop("prompt_file"))
+    with pytest.raises(ValidationFailed) as exc:
+        load_role(path, root)
+    assert any("'prompt_file' is a required property" in m for m in exc.value.messages)
+
+
+def test_role_budget_timeout_is_loaded(root: Path):
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    assert role.per_call_timeout_s == 300
