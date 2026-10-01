@@ -18,18 +18,18 @@ global:
     - docs/plans/2026-09-30-m1-agno-cli-models.md
   index: [README.md, "docs/**/*.md", "reports/*.md"]
 areas:
+  seats:
+    description: Seat builder and runner (Agno model classes); qualification on the seat path
+    projects: [sendesis]
+    docs: [CLAUDE.md]
+    index: ["src/sendesis/seat.py", "src/sendesis/qualify.py"]
+    checks: [runner-requirements]
   engine:
     description: Qualification engine, scoring, receipts, validation and the CLI
     projects: [sendesis]
     docs: [docs/specs/2026-09-30-system-vision-design.md]
     index: ["src/sendesis/*.py", "tests/*.py"]
     checks: [qualification-engine]
-  runners:
-    description: Claude CLI, Codex CLI and OpenAI-compatible HTTP runners
-    projects: [sendesis]
-    docs: [CLAUDE.md]
-    index: ["src/sendesis/runners/*.py"]
-    checks: [runner-requirements]
   contracts:
     description: Role contracts and prompts, execution profiles, JSON Schemas
     projects: [sendesis]
@@ -58,4 +58,4 @@ checks:
     description: Runners follow CLAUDE.md's runner requirements from Spike 0
     mode: index
     reads: [CLAUDE.md]
-    validates_against: [src/sendesis/runners/]
+    validates_against: [src/sendesis/seat.py, src/sendesis/qualify.py]

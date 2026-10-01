@@ -3,17 +3,14 @@
     .venv/bin/pytest -m integration
 """
 
-import json
-
 import pytest
 
 from conftest import REPO
-from sendesis.model import load_profile
-from sendesis.runners import Call, Status, claude_cli, cli_version, codex_cli
+from sendesis.model import load_profile, load_role
+from sendesis.seat import Outcome, run_role
 
 pytestmark = pytest.mark.integration
 
-SCHEMA = json.loads((REPO / "schemas" / "finding.json").read_text())
 PROMPT = (
     "Review this diff for security problems. Return JSON for the findings schema with role_id "
     "security-reviewer.\n\n```diff\n--- a/app.py\n+++ b/app.py\n@@ -1 +1 @@\n"
@@ -29,13 +26,13 @@ def workdir(tmp_path):
     return tmp_path
 
 
-@pytest.mark.parametrize("name, module", [("claude-opus", claude_cli), ("codex-gpt", codex_cli)])
-def test_real_call_returns_pinned_model_and_version(name, module, workdir):
+@pytest.mark.parametrize("name", ["claude-opus", "codex-gpt"])
+def test_real_call_returns_pinned_model_and_version(name, workdir):
     profile = load_profile(REPO / "profiles" / f"{name}.yaml", REPO)
-    assert cli_version(profile.cli_binary) == profile.cli_version, "installed CLI differs from the profile pin"
-    call = Call(PROMPT, SCHEMA, workdir, profile.timeout_s)
-    result = module.run(profile, ("read", "search"), call) if module is claude_cli else module.run(profile, call)
-    assert result.status is Status.OK, result.reason
-    assert result.model == profile.model
+    role = load_role(REPO / "roles" / "security-reviewer.yaml", REPO)
+    result = run_role(role, profile, PROMPT, root=REPO, cwd=workdir, timeout_s=profile.timeout_s)
+    assert result.outcome is Outcome.OK, result.reason
+    assert result.observed_model == profile.model.id
+    assert result.cli_version == profile.model.cli_version, "installed CLI differs from the profile pin"
     assert result.output is not None and "findings" in result.output
     assert result.input_tokens > 0 and result.output_tokens > 0
