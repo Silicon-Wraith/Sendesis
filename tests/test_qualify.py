@@ -271,3 +271,108 @@ def test_reviewer_with_edit_or_shell_tool_is_refused_before_any_call(qroot, tmp_
         qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN,
                 now=NOW, workdir=tmp_path / "wd", runs_dir=tmp_path / "runs")
     assert calls == []
+
+
+def stalled():
+    return SeatResult(Outcome.STALL, reason="CliStallError: codex sent nothing for 60.0s",
+                      stall={"idle_s": 60.0, "last_method": "item/started", "answer_open": True})
+
+
+def test_stall_retried_once_and_recovered_is_measured(qroot, tmp_path):
+    plan = all_ok()
+    plan["v1"] = [stalled(), ok([HIT])]
+    seat_fn = scripted(plan)
+    r = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN, now=NOW,
+                workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
+    assert seat_fn.calls.count("v1") == 2
+    assert r["status"] == "QUALIFIED" and r["suite"]["n_measured"] == 4 and "unmeasured" not in r
+    logs = sorted(p.name for p in (tmp_path / "runs").rglob("v1*.json"))
+    assert logs == ["v1.1.json", "v1.json"]
+    assert json.loads(next((tmp_path / "runs").rglob("v1.1.json")).read_text())["stall"]["last_method"] == "item/started"
+
+
+def test_stall_retried_once_then_unmeasured(qroot, tmp_path):
+    plan = all_ok()
+    plan["v1"] = [stalled(), stalled()]
+    seat_fn = scripted(plan)
+    r = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN, now=NOW,
+                workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
+    assert seat_fn.calls.count("v1") == 2
+    recall = next(s for s in r["scores"] if s["metric"] == "recall")
+    assert recall["value"] == 1.0  # v2's one label, hit; v1 is not a miss
+    assert r["suite"]["n_cases"] == 4 and r["suite"]["n_measured"] == 3
+    assert r["unmeasured"] == [{"case_id": "v1", "outcome": "stall"}]
+    assert r["status"] == "UNKNOWN" and "case v1: stall" in r["status_reason"]
+
+
+def test_invalid_then_stall_is_one_retry_and_unmeasured(qroot, tmp_path):
+    plan = all_ok()
+    plan["v1"] = [SeatResult(Outcome.INVALID, reason="bad"), stalled()]
+    seat_fn = scripted(plan)
+    r = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN, now=NOW,
+                workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
+    assert seat_fn.calls.count("v1") == 2
+    assert r["unmeasured"] == [{"case_id": "v1", "outcome": "stall"}]
+
+
+@pytest.mark.parametrize("outcome", [Outcome.TIMEOUT, Outcome.ERROR])
+def test_timeout_and_error_are_not_retried_and_are_unmeasured(qroot, tmp_path, outcome):
+    plan = all_ok()
+    plan["v1"] = [SeatResult(outcome, reason="boom")]
+    seat_fn = scripted(plan)
+    r = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=seat_fn, version_fn=lambda b: PIN, now=NOW,
+                workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
+    assert seat_fn.calls.count("v1") == 1
+    assert next(s for s in r["scores"] if s["metric"] == "recall")["value"] == 1.0
+    assert r["unmeasured"] == [{"case_id": "v1", "outcome": outcome.value}]
+
+
+def test_unmeasured_clean_case_is_not_counted_clean(qroot, tmp_path):
+    plan = all_ok()
+    plan["c1"] = [stalled(), stalled()]
+    plan["c2"] = [ok([HIT])]  # one false positive on the only measured clean case
+    r = run(qroot, plan, tmp_path).receipt
+    fp = next(s for s in r["scores"] if s["metric"] == "false_positives_per_clean_case")
+    assert fp["value"] == 1.0  # 1 finding / 1 measured clean case, not / 2
+
+
+def test_all_cases_unmeasured_still_writes_a_valid_receipt(qroot, tmp_path):
+    from sendesis.receipts import validate_receipt
+
+    plan = {k: [stalled(), stalled()] for k in ("v1", "v2", "c1", "c2")}
+    result = run(qroot, plan, tmp_path)
+    r = result.receipt
+    assert r["scores"] == [] and r["suite"]["n_measured"] == 0 and len(r["unmeasured"]) == 4
+    assert r["status"] == "UNKNOWN"
+    assert validate_receipt(qroot, json.loads(result.path.read_text())) == []
+
+
+def test_rate_limited_case_is_listed_unmeasured(qroot, tmp_path):
+    plan = {"c1": [SeatResult(Outcome.RATE_LIMIT, reason="ModelRateLimitError: usage limit")], "c2": [ok()], "v1": [ok()], "v2": [ok()]}
+    r = run(qroot, plan, tmp_path).receipt
+    assert r["suite"]["n_measured"] == 0 and r["unmeasured"] == [{"case_id": "c1", "outcome": "rate_limit"}]
+
+
+def test_receipt_with_unmeasured_cases_validates(qroot, tmp_path):
+    from sendesis.receipts import validate_receipt
+
+    plan = all_ok()
+    plan["v1"] = [stalled(), stalled()]
+    result = run(qroot, plan, tmp_path)
+    assert validate_receipt(qroot, json.loads(result.path.read_text())) == []
+
+
+def test_cli_qualify_prints_measured_count(qroot, tmp_path, capsys, monkeypatch):
+    import sendesis.qualify as q
+
+    plan = {k: [ok(model="qwen-test")] for k in ("v2", "c1", "c2")}
+    plan["v1"] = [stalled(), stalled()]
+    monkeypatch.setattr(q, "default_workdir", lambda role_id: tmp_path / "wd")
+    monkeypatch.setattr(q, "default_seat_fn", lambda root: scripted(plan))
+    def local(d):
+        d.update(enabled=True, family="qwen")
+        d["model"].update(id="qwen-test")
+    edit_yaml(qroot / "profiles" / "ollama-local.yaml", local)
+    assert main(["qualify", "security-reviewer", "ollama-local", "--local", "--root", str(qroot)]) == 0
+    out = capsys.readouterr().out
+    assert "measured 3 of 4 cases" in out and "unmeasured: v1 (stall)" in out

@@ -1,15 +1,19 @@
 """`sendesis qualify <role> <profile>`: run a role's suite on one profile and
 write a receipt.
 
+A case is measured when its final outcome is OK or INVALID. INVALID and STALL
+get one retry. A case that ends TIMEOUT, ERROR, STALL or RATE_LIMIT is
+unmeasured: it is listed on the receipt and left out of every score, never
+counted as a miss or as clean (decision stall-is-not-a-miss).
+
 Status rules:
 - UNKNOWN when the installed CLI version differs from the profile's pin
-  (checked first, so no quota is spent), when a call fails or is rate
-  limited, when the observed model is not the profile's model, when a metric
-  cannot be computed, or when the suite has fewer cases than `min_cases`;
+  (checked first, so no quota is spent), when any case is unmeasured, when
+  the observed model is not the profile's model, when a metric cannot be
+  computed, or when the suite has fewer cases than `min_cases`;
 - otherwise QUALIFIED if every metric passes at the conservative end of its
   interval, else FAILED.
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -138,7 +142,10 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
     if profile.cli_binary and parse_version(installed or "") != parse_version(pin or ""):
         reasons.append(f"installed {profile.cli_binary} version {installed!r} does not match profile pin {pin!r}; no calls made")
 
+    RETRIED = (Outcome.INVALID, Outcome.STALL)
+    MEASURED = (Outcome.OK, Outcome.INVALID)
     outcomes: list[CaseOutcome] = []
+    unmeasured: list[dict[str, str]] = []
     results: list[SeatResult] = []
     if not reasons:
         for case in suite.cases:
@@ -146,19 +153,21 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
             cwd = prepare_workdir(workdir, case)
             result = seat_fn(role, profile, message, cwd, timeout_s)
             results.append(result)
-            if result.outcome is Outcome.INVALID:  # one retry on invalid output
+            if result.outcome in RETRIED:  # one retry on invalid output or a stall
                 _log(run_log, f"{case.id}.1", result)
                 result = seat_fn(role, profile, message, cwd, timeout_s)
                 results.append(result)
             _log(run_log, case.id, result)
-            valid = result.outcome is Outcome.OK
-            findings = (result.output or {}).get("findings", []) if valid else []
-            outcomes.append(CaseOutcome(case.id, case.clean, case.labels, findings, valid, result.outcome in (Outcome.OK, Outcome.INVALID)))
-            if result.outcome not in (Outcome.OK, Outcome.INVALID):
-                reasons.append(f"case {case.id}: {result.outcome.value}: {result.reason[:200]}")
-                if result.outcome is Outcome.RATE_LIMIT:
-                    reasons.append("stopped after rate limit")
-                    break
+            if result.outcome in MEASURED:
+                valid = result.outcome is Outcome.OK
+                findings = (result.output or {}).get("findings", []) if valid else []
+                outcomes.append(CaseOutcome(case.id, case.clean, case.labels, findings, valid, True))
+                continue
+            unmeasured.append({"case_id": case.id, "outcome": result.outcome.value})
+            reasons.append(f"case {case.id}: {result.outcome.value}: {result.reason[:200]}")
+            if result.outcome is Outcome.RATE_LIMIT:
+                reasons.append("stopped after rate limit")
+                break
 
     models = sorted({r.observed_model for r in results if r.outcome is Outcome.OK and r.observed_model})
     wrong = [m for m in models if m != profile.model.id]
@@ -212,7 +221,7 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
         "role": {"id": role.id, "version": role.version, "sha256": role.sha256, "prompt_sha256": role.prompt_sha256},
         "profile": {"ids": [profile.id], "sha256": profile.sha256},
         "observed": [observed],
-        "suite": {"path": rel_path(suite.path, root), "sha256": suite.sha256, "n_cases": len(suite.cases)},
+        "suite": {"path": rel_path(suite.path, root), "sha256": suite.sha256, "n_cases": len(suite.cases), "n_measured": len(outcomes)},
         "status": status,
         "scores": scores,
         "cost": cost,
@@ -221,6 +230,8 @@ def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_
     }
     if reasons:
         receipt["status_reason"] = "; ".join(reasons)
+    if unmeasured:
+        receipt["unmeasured"] = unmeasured
     if dry_run:
         run_log.mkdir(parents=True, exist_ok=True)
         path = run_log / "summary.json"

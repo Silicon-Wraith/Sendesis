@@ -52,11 +52,25 @@
       "properties": {
         "path": {"type": "string"},
         "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "n_cases": {"type": "integer", "minimum": 1}
+        "n_cases": {"type": "integer", "minimum": 1},
+        "n_measured": {"type": "integer", "minimum": 0, "description": "Cases with a measured answer (final outcome ok or invalid). Scores are computed over these only. Absent on receipts issued before stall handling."}
       }
     },
     "status": {"enum": ["QUALIFIED", "FAILED", "UNKNOWN"]},
     "status_reason": {"type": "string"},
+    "unmeasured": {
+      "type": "array",
+      "description": "Cases without a measured answer, with their final outcome. Never scored as a miss or as clean; any entry keeps the status UNKNOWN.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "outcome"],
+        "properties": {
+          "case_id": {"type": "string"},
+          "outcome": {"enum": ["timeout", "error", "stall", "rate_limit"]}
+        }
+      }
+    },
     "scores": {
       "type": "array",
       "items": {
