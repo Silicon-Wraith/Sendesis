@@ -1,6 +1,6 @@
 # Stall handling for model seats
 
-Status: decisions recorded 2026-10-01 (approved). Part 1 is done in agno-cli-models v0.1.2, and Sendesis pins it. Parts 2 and 3 are not implemented yet.
+Status: decisions recorded 2026-10-01 (approved). Implemented: part 1 in agno-cli-models v0.1.2, and parts 2 and 3 in Sendesis (plan `docs/plans/2026-10-01-stall-handling-plan.md`).
 
 Evidence: `reports/2026-10-01-m3.1-exit-run.md`, "Known issue: Codex stream stalls".
 
