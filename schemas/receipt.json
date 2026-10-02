@@ -5,6 +5,8 @@
   "description": "Evidence that a profile met a role's bar on a suite. Valid only while role version, profile hash, suite hash, CLI version, model and config fingerprint all still match, and before expires_at. Otherwise the router treats the status as UNKNOWN. Receipts issued before M3.1 are kept as written, do not validate against this schema, and are read only through effective_status, which reports them UNKNOWN.",
   "type": "object",
   "additionalProperties": false,
+  "if": {"required": ["unmeasured"], "properties": {"unmeasured": {"minItems": 1}}},
+  "then": {"properties": {"status": {"const": "UNKNOWN"}}},
   "required": ["kind", "role", "profile", "observed", "suite", "status", "scores", "cost", "issued_at", "expires_at"],
   "properties": {
     "kind": {"enum": ["single", "team_gate"], "description": "single qualifies one profile; team_gate records a gate result for loop mode."},

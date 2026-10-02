@@ -201,6 +201,6 @@ def load_profile(path: Path, root: Path) -> Profile:
         ),
         timeout_s=data["timeout_s"],
         max_turns=data.get("max_turns"),
-        idle_timeout_s=data.get("idle_timeout_s"),
+        idle_timeout_s=float(data["idle_timeout_s"]) if "idle_timeout_s" in data else None,
         raw=data,
     )

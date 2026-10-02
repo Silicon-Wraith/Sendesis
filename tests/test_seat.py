@@ -199,3 +199,23 @@ def test_stall_inside_another_error_is_still_a_stall(root: Path):
         wrapped = outer
     r = run(root, wrapped)
     assert r.outcome is Outcome.STALL and r.stall["last_method"] == "item/started"
+
+
+def test_stall_reached_only_through_context_is_still_a_stall(root: Path):
+    try:
+        try:
+            raise stall_error()
+        except CliStallError:
+            raise RuntimeError()  # no "from": the stall is only on __context__
+    except RuntimeError as outer:
+        implicit = outer
+    assert implicit.__cause__ is None and isinstance(implicit.__context__, CliStallError)
+    stall = implicit.__context__
+
+    # Agno raises the scripted error while another exception is being handled, and Python would then
+    # overwrite __context__. Pin it so the error reaches run_seat exactly as built above.
+    class Pinned(RuntimeError):
+        __context__ = property(lambda self: stall, lambda self, value: None)
+
+    r = run(root, Pinned())
+    assert r.outcome is Outcome.STALL and r.stall["last_method"] == "item/started"

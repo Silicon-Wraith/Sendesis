@@ -376,3 +376,54 @@ def test_cli_qualify_prints_measured_count(qroot, tmp_path, capsys, monkeypatch)
     assert main(["qualify", "security-reviewer", "ollama-local", "--local", "--root", str(qroot)]) == 0
     out = capsys.readouterr().out
     assert "measured 3 of 4 cases" in out and "unmeasured: v1 (stall)" in out
+
+
+def test_version_mismatch_receipt_counts_no_case_as_run(qroot, tmp_path):
+    r = qualify(qroot, "security-reviewer", "claude-opus", seat_fn=scripted({}), version_fn=lambda b: "9.9.9", now=NOW,
+                workdir=tmp_path / "wd", runs_dir=tmp_path / "runs").receipt
+    assert r["suite"]["n_measured"] == 0 and r.get("unmeasured", []) == [] and r["suite"]["n_cases"] == 4
+
+
+def _local_cli(qroot, tmp_path, monkeypatch, plan):
+    import sendesis.qualify as q
+
+    monkeypatch.setattr(q, "default_workdir", lambda role_id: tmp_path / "wd")
+    monkeypatch.setattr(q, "default_seat_fn", lambda root: scripted(plan))
+    def local(d):
+        d.update(enabled=True, family="qwen")
+        d["model"].update(id="qwen-test")
+    edit_yaml(qroot / "profiles" / "ollama-local.yaml", local)
+
+
+def test_cli_rate_limit_stop_prints_not_run(qroot, tmp_path, capsys, monkeypatch):
+    plan = {"c1": [SeatResult(Outcome.RATE_LIMIT, reason="ModelRateLimitError: usage limit")]}
+    _local_cli(qroot, tmp_path, monkeypatch, plan)
+    assert main(["qualify", "security-reviewer", "ollama-local", "--local", "--root", str(qroot)]) == 0
+    out = capsys.readouterr().out
+    assert "unmeasured: c1 (rate_limit)" in out
+    assert "measured 0 of 4" in out and "3 cases not run" in out
+
+
+def test_cli_version_mismatch_prints_not_run_and_no_measured_line(qroot, tmp_path, capsys, monkeypatch):
+    import sendesis.qualify as q
+
+    real = q.qualify
+    # cmd_qualify passes no version_fn and the default is bound at definition, so force the mismatch here.
+    monkeypatch.setattr(q, "qualify", lambda *a, **kw: real(*a, version_fn=lambda b: "9.9.9", seat_fn=scripted({}),
+                                                            now=NOW, workdir=tmp_path / "wd", runs_dir=tmp_path / "runs", **kw))
+    assert main(["qualify", "security-reviewer", "claude-opus", "--root", str(qroot)]) == 0
+    out = capsys.readouterr().out
+    assert "no calls made" in out and "4 cases not run" in out
+    assert "measured" not in out.replace("unmeasured", "")
+
+
+def test_unmeasured_receipt_cannot_claim_qualified(qroot, tmp_path):
+    from sendesis.receipts import validate_receipt
+
+    plan = all_ok()
+    plan["v1"] = [stalled(), stalled()]
+    receipt = run(qroot, plan, tmp_path).receipt
+    assert validate_receipt(qroot, receipt) == []
+    receipt = {**receipt, "status": "QUALIFIED"}
+    errors = validate_receipt(qroot, receipt)
+    assert errors and any("UNKNOWN" in e for e in errors)
