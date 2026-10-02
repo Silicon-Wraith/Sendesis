@@ -101,3 +101,68 @@ def test_unknown_stage_id_is_an_error(root: Path):
     wf = make(root, [{"role": "p"}])
     with pytest.raises(StageError, match="has no stage nope"):
         run_stage(root, wf, "nope", diff="", now=NOW, seat_fn=scripted({}))
+
+
+@pytest.fixture
+def inputs(tmp_path_factory) -> Path:
+    """Diff and context live outside `root`, so they do not dirty its git tree."""
+    return tmp_path_factory.mktemp("inputs")
+
+
+def cli_setup(root: Path, inputs: Path, monkeypatch, plan):
+    import sendesis.stage as st
+
+    wf = make(root, [{"role": "p", "count": 2, "distinct_families": 2}])
+    monkeypatch.setattr(st, "default_seat_fn", lambda r: scripted(plan))
+    diff = inputs / "change.diff"
+    diff.write_text("+x = 1\n")
+    return wf, diff
+
+
+def test_cli_stage_completed_prints_mapping_last(root: Path, inputs: Path, monkeypatch, capsys):
+    from sendesis.cli import main
+
+    wf, diff = cli_setup(root, inputs, monkeypatch, {"claude-opus": [result(Outcome.STALL), ok()], "codex-gpt": [ok()]})
+    assert main(["stage", str(wf), "review", "--diff", str(diff), "--root", str(root)]) == 0
+    out = capsys.readouterr().out
+    head, _, tail = out.partition("mapping:")
+    assert out.startswith("COMPLETED  stage review of wf")
+    seat_lines = [ln for ln in head.splitlines() if ln.startswith("  seat ")]
+    assert any("seat A: stall" in ln for ln in seat_lines) and not any(p in ln for ln in seat_lines for p in PROFILES)
+    assert "A claude-opus stall" in tail and "A codex-gpt ok" in tail and "record:" in tail
+
+
+def test_cli_stage_refused_exits_1(root: Path, inputs: Path, monkeypatch, capsys):
+    from sendesis.cli import main
+
+    edit_yaml(root / "profiles" / "codex-gpt.yaml", lambda d: d.update(enabled=False))
+    edit_yaml(root / "profiles" / "ollama-local.yaml", lambda d: d.update(enabled=False))
+    wf, diff = cli_setup(root, inputs, monkeypatch, {})
+    assert main(["stage", str(wf), "review", "--diff", str(diff), "--root", str(root)]) == 1
+    out = capsys.readouterr().out
+    assert out.startswith("REFUSED") and "needs 2 families, 1 acceptable" in out
+
+
+def test_cli_stage_unknown_stage_exits_2(root: Path, inputs: Path, monkeypatch, capsys):
+    from sendesis.cli import main
+
+    wf, diff = cli_setup(root, inputs, monkeypatch, {})
+    assert main(["stage", str(wf), "nope", "--diff", str(diff), "--root", str(root)]) == 2
+    assert "has no stage nope" in capsys.readouterr().out
+
+
+def test_cli_stage_reads_nested_context(root: Path, inputs: Path, monkeypatch, capsys):
+    from sendesis.cli import main
+
+    plan = {"claude-opus": [ok()], "codex-gpt": [ok()]}
+    wf, diff = cli_setup(root, inputs, monkeypatch, plan)
+    ctx = inputs / "ctx"
+    (ctx / "pkg" / "sub").mkdir(parents=True)
+    (ctx / "pkg" / "sub" / "mod.py").write_text("y = 2\n")
+    import sendesis.stage as st
+    fn = scripted(plan)
+    monkeypatch.setattr(st, "default_seat_fn", lambda r: fn)
+    assert main(["stage", str(wf), "review", "--diff", str(diff), "--context", str(ctx), "--root", str(root)]) == 0
+    message = fn.calls[0][2]
+    assert "### pkg/sub/mod.py" in message and "y = 2" in message
+    assert not any(p in message for p in PROFILES)

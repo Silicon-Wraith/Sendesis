@@ -5,3 +5,4 @@ __pycache__/
 runs/
 suites/*/cases/**/private/
 .claude/settings.local.json
+.sendesis/

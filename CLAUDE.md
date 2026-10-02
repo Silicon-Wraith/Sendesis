@@ -19,6 +19,7 @@ roles/        role contracts (*.yaml) and their prompts (*.prompt.md)
 profiles/     execution profiles (*.yaml)
 suites/       qualification suites, one folder per role
 receipts/     qualification and gate receipts (JSON, committed to git)
+.sendesis/    run records (stage.json per run), ignored by git
 reports/      review and gate reports
 spike/        Spike 0 probes, not product code
 src/sendesis/ engine, CLI, MCP server (to be written)
