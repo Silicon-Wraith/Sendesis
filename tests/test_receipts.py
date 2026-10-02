@@ -1,4 +1,5 @@
 import json
+import shutil
 from datetime import datetime, timezone
 from dataclasses import replace
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from sendesis.model import load_profile, load_role
-from sendesis.receipts import effective_status
+from sendesis.receipts import effective_status, profile_status
 
 REPO = Path(__file__).resolve().parent.parent
 NOW = datetime(2026, 10, 2, tzinfo=timezone.utc)
@@ -92,21 +93,39 @@ def test_receipt_without_observation_for_profile_says_so(root: Path):
 
 
 def test_profile_status_none_without_receipt(root: Path):
-    from sendesis.receipts import profile_status
-
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     profile = load_profile(root / "profiles" / "ollama-local.yaml", root)
     assert profile_status(root, role, profile, NOW, version_fn=lambda b: None) == ("NONE", [])
 
 
 def test_profile_status_reads_latest_receipt_and_recorded_reason(root: Path):
-    import shutil as _sh
-    from sendesis.receipts import profile_status
-
-    _sh.copytree(REPO / "receipts", root / "receipts")
+    shutil.copytree(REPO / "receipts", root / "receipts")
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     profile = load_profile(root / "profiles" / "claude-opus.yaml", root)
     versions = {"claude": "2.1.287", "codex": "0.155.1"}
     status, reasons = profile_status(root, role, profile, NOW, version_fn=versions.get)
     assert status == "UNKNOWN"
     assert reasons[-1] == "suite has 30 cases, role requires at least 100"
+
+
+def test_check_all_void_on_seat_build_failure(root: Path, monkeypatch):
+    from sendesis.receipts import check_all
+
+    shutil.copytree(REPO / "receipts", root / "receipts")
+    monkeypatch.setattr("sendesis.receipts.current_fingerprint", lambda profile, role: (_ for _ in ()).throw(RuntimeError("no binary")))
+    rows = check_all(root, NOW)
+    # Find the row for security-reviewer/claude-opus
+    matching = [r for r in rows if "security-reviewer" in str(r[0]) and "claude-opus" in str(r[0])]
+    assert len(matching) == 1
+    _, recorded, effective, reasons = matching[0]
+    assert reasons == ["seat cannot be built: no binary"]
+
+
+def test_profile_status_void_on_seat_build_failure(root: Path, monkeypatch):
+    shutil.copytree(REPO / "receipts", root / "receipts")
+    monkeypatch.setattr("sendesis.receipts.current_fingerprint", lambda profile, role: (_ for _ in ()).throw(RuntimeError("no binary")))
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    profile = load_profile(root / "profiles" / "claude-opus.yaml", root)
+    status, reasons = profile_status(root, role, profile, NOW, version_fn=lambda b: None)
+    assert status == "UNKNOWN"
+    assert reasons == ["seat cannot be built: no binary"]
