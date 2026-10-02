@@ -1,6 +1,6 @@
 # Stall handling for model seats
 
-Status: decisions recorded 2026-10-01 (approved). Not implemented: the agno-cli-models part is requested upstream, and the Sendesis part waits for it.
+Status: decisions recorded 2026-10-01 (approved). Part 1 is done in agno-cli-models v0.1.2, and Sendesis pins it. Parts 2 and 3 are not implemented yet.
 
 Evidence: `reports/2026-10-01-m3.1-exit-run.md`, "Known issue: Codex stream stalls".
 
@@ -26,9 +26,9 @@ Three things went wrong in how Sendesis handled it:
   - The error carries the seconds idle, the last message's method, and whether an answer item was open.
 - **Codex:** the idle clock resets on every message from `codex app-server`, including `item/started`, deltas and token updates. It does not reset only on the `ModelResponse` events that `_timed` sees, because those do not cover reasoning.
   - The default is 60 s. That is about four times the longest healthy silence measured, 16 s.
-- **Claude Code:** the default is `None` until its event cadence is measured. The Claude Agent SDK may stay silent through long thinking. A Claude default is set only from a measurement, never by analogy with Codex.
+- **Claude Code:** the default was to stay `None` until Claude's event cadence was measured. It has now been measured (agno-cli-models `claude-idle-cadence`, dec-9d0c71cd7c9e), and v0.1.2 ships a 60 s default for Claude. The limit holds only with partial messages on, so `ClaudeCodeModel` switches them on whenever an idle limit is set. The clock is held while an Agno tool runs.
 - `idle_timeout_s` goes into `config_fingerprint()`. It changes what counts as a failed call, so a receipt must certify it.
-- **Rejected for now: Codex's own `stream_idle_timeout_ms`.** It lets Codex reconnect before the idle limit fires. But it is a per-provider setting, and overriding it for the built-in ChatGPT provider through `-c` is unverified. A reconnect also replays the request, which is not visible to the caller. The design does not depend on it. Revisit it after the substrate check below.
+- **Rejected: Codex's own `stream_idle_timeout_ms`.** It cannot be changed: `codex app-server` refuses to start when any `model_providers.openai` key is set (agno-cli-models `codex-builtin-provider-stream-settings`, dec-3bbadf61b14f). Codex keeps its defaults, a 300 s idle timeout and 5 stream retries. A Codex reconnect shows up as an `error` notification with `willRetry: true`, and that notification also resets the idle clock.
 
 ### 2. A STALL outcome in Sendesis
 
@@ -58,8 +58,8 @@ Three things went wrong in how Sendesis handled it:
 | Healthy Codex turns never go silent for more than about 16 s | Verified on 30 turns (25 exit-run passes and 5 probe passes) | Exit report; probe event logs |
 | The stall does not depend on the case content | Supported, not proven | Same five cases passed on rerun, 0 of 5 stalled |
 | Codex 0.155.1 has `stream_idle_timeout_ms` and `stream_max_retries` | Verified (strings in the shipped binary, under `ModelProviderInfo`) | `strings` on the Codex binary |
-| Those can be overridden for the built-in ChatGPT provider through `-c` on `codex app-server` | Unverified | |
-| The Claude Agent SDK sends messages often enough for an idle limit | Unverified | Measure before setting a Claude default |
+| Those can be overridden for the built-in ChatGPT provider through `-c` on `codex app-server` | Refuted: app-server refuses any `model_providers.openai` key | agno-cli-models `reports/2026-10-01-substrate-checks.md` |
+| The Claude Agent SDK sends messages often enough for an idle limit | Verified with partial messages on: longest gap 5.55 s in 14 healthy runs. Without them a long answer is silent (37.5 s). | Same report. Multi-minute thinking, API retries and rate-limit waits were not observed. |
 | agno-cli-models can see every app-server message (`Rpc.inbox`) | Verified | `codex/rpc.py`; the probe wrapped it |
 
 ## Design assertions
@@ -95,6 +95,12 @@ Recorded in Sendesis's `decisions.jsonl`, provenance human:
 ## Upstream requests
 
 These are recorded in Sendesis's `decisions.jsonl` with the tags `upstream-request`, `pending` and `target:agno-cli-models`. They stand in for the `upstream_report` record planned for ReasonHold 0.2. A later Sendesis decision that supersedes a request closes it.
+
+All four are closed as of agno-cli-models v0.1.2:
+- housekeeping by dec-cb012bcea61f;
+- isolation leak by dec-9fea3a9de7a5;
+- substrate checks by dec-9100675d7844;
+- idle limit by dec-d93fbe6aed26.
 
 - `request-agno-cli-models-idle-limit` (dec-acb04313987e): `idle_timeout_s`, `CliStallError`, the fingerprint change, tests, and a release tag.
 - `request-agno-cli-models-substrate-checks` (dec-5799c9b63ac7): measure the Claude Agent SDK's message cadence, and verify Codex's `stream_idle_timeout_ms` override.
