@@ -147,6 +147,7 @@ class Profile:
     model: ModelSpec
     timeout_s: int
     max_turns: int | None = None
+    idle_timeout_s: float | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
     @property
@@ -200,5 +201,6 @@ def load_profile(path: Path, root: Path) -> Profile:
         ),
         timeout_s=data["timeout_s"],
         max_turns=data.get("max_turns"),
+        idle_timeout_s=float(data["idle_timeout_s"]) if "idle_timeout_s" in data else None,
         raw=data,
     )

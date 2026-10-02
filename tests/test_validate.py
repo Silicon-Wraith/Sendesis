@@ -138,3 +138,17 @@ def test_missing_suite_folder_fails(root: Path):
     edit_yaml(root / ROLE, lambda d: d["qualification"].update(suite="suites/nope"))
     errors = validate_repo(root).errors
     assert any("suites/nope" in e for e in errors)
+
+
+def test_idle_limit_on_a_non_cli_profile_warns(root: Path):
+    edit_yaml(root / "profiles" / "ollama-local.yaml", lambda d: d.update(idle_timeout_s=30))
+    report = validate_repo(root)
+    assert report.errors == []
+    assert any("ollama-local.yaml" in w and "idle_timeout_s" in w for w in report.warnings)
+
+
+def test_idle_limit_not_below_the_wall_clock_warns(root: Path):
+    edit_yaml(root / "profiles" / "codex-gpt.yaml", lambda d: d.update(idle_timeout_s=300))
+    report = validate_repo(root)
+    assert report.errors == []
+    assert any("codex-gpt.yaml" in w and "idle_timeout_s" in w and "timeout_s" in w for w in report.warnings)

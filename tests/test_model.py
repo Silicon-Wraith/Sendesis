@@ -138,3 +138,16 @@ def test_role_network_must_be_false(root: Path):
     edit_yaml(path, lambda d: d["tools"].update(network=True))
     with pytest.raises(ValidationFailed):
         load_role(path, root)
+
+
+def test_integer_idle_timeout_fingerprints_like_the_default(root: Path, tmp_path: Path):
+    from sendesis.seat import build_model
+
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    path = root / "profiles" / "codex-gpt.yaml"
+    default = build_model(load_profile(path, root), role, cwd=tmp_path, timeout_s=30)
+    edit_yaml(path, lambda d: d.update(idle_timeout_s=60))
+    profile = load_profile(path, root)
+    assert isinstance(profile.idle_timeout_s, float)
+    explicit = build_model(profile, role, cwd=tmp_path, timeout_s=30)
+    assert explicit.config_fingerprint() == default.config_fingerprint()

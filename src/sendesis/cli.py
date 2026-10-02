@@ -37,6 +37,16 @@ def cmd_qualify(args: argparse.Namespace) -> int:
     if args.local:
         print("DRY RUN (no receipt written)")
     print(f"{r['status']}  {args.role} on {args.profile}  ({r['suite']['n_cases']} cases, suite {r['suite']['path']})")
+    n_cases = r["suite"]["n_cases"]
+    n_measured = r["suite"].get("n_measured", n_cases)
+    unmeasured = r.get("unmeasured") or []
+    not_run = n_cases - n_measured - len(unmeasured)
+    if unmeasured:
+        print(f"  measured {n_measured} of {n_cases} cases; scores cover measured cases only")
+    if not_run > 0:
+        print(f"  {not_run} cases not run")
+    if unmeasured:
+        print("  unmeasured: " + ", ".join(f"{u['case_id']} ({u['outcome']})" for u in unmeasured))
     for s in r["scores"]:
         mark = "pass" if s["pass"] else "FAIL"
         print(f"  {s['metric']:32} {s['value']:.3f}  [{s['ci_low']:.3f}, {s['ci_high']:.3f}] {s['ci_method']:9} threshold {s['threshold']} ({s['basis']})  {mark}")
