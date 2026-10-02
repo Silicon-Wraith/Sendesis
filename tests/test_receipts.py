@@ -89,3 +89,24 @@ def test_receipt_without_observation_for_profile_says_so(root: Path):
     receipt["observed"][0]["profile_id"] = "other-profile"
     status, reasons = effective_status(receipt, **kw)
     assert status == "UNKNOWN" and reasons == [f"no observation for profile {profile.id}"]
+
+
+def test_profile_status_none_without_receipt(root: Path):
+    from sendesis.receipts import profile_status
+
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    profile = load_profile(root / "profiles" / "ollama-local.yaml", root)
+    assert profile_status(root, role, profile, NOW, version_fn=lambda b: None) == ("NONE", [])
+
+
+def test_profile_status_reads_latest_receipt_and_recorded_reason(root: Path):
+    import shutil as _sh
+    from sendesis.receipts import profile_status
+
+    _sh.copytree(REPO / "receipts", root / "receipts")
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    profile = load_profile(root / "profiles" / "claude-opus.yaml", root)
+    versions = {"claude": "2.1.287", "codex": "0.155.1"}
+    status, reasons = profile_status(root, role, profile, NOW, version_fn=versions.get)
+    assert status == "UNKNOWN"
+    assert reasons[-1] == "suite has 30 cases, role requires at least 100"
