@@ -95,13 +95,17 @@ def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
 
 
-def build_message(role: Role, case: Case) -> str:
-    parts = [f"Set role_id to {role.id}.", "", "## diff", "```diff", case.diff.rstrip(), "```"]
-    if case.context:
+def review_message(role_id: str, diff: str, context: dict[str, str]) -> str:
+    parts = [f"Set role_id to {role_id}.", "", "## diff", "```diff", diff.rstrip(), "```"]
+    if context:
         parts += ["", "## context files"]
-        for rel, text in case.context.items():
+        for rel, text in context.items():
             parts += ["", f"### {rel}", "```", text.rstrip(), "```"]
     return "\n".join(parts) + "\n"
+
+
+def build_message(role: Role, case: Case) -> str:
+    return review_message(role.id, case.diff, case.context)
 
 
 def qualify(root, role_id, profile_id, *, suite_dir=None, seat_fn=None, version_fn=installed_version,
