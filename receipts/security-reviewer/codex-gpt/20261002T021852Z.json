@@ -1,0 +1,72 @@
+{
+  "kind": "single",
+  "role": {
+    "id": "security-reviewer",
+    "version": "0.2.0",
+    "sha256": "905cf2ee96733ef4312b80e02a39a300056f0f724ef82bc51d30307239d75cb1",
+    "prompt_sha256": "c8c9dfa605cd2063b694fe0c971f6bf7eca2b81ae76f3c9ec3e9c95373aa1b1b"
+  },
+  "profile": {
+    "ids": [
+      "codex-gpt"
+    ],
+    "sha256": "be4405c0804897f836cf4ff808988e4da9d03c932c9b988b4abe7a8086659199"
+  },
+  "observed": [
+    {
+      "profile_id": "codex-gpt",
+      "model": "gpt-5.6-sol",
+      "config_fingerprint": "ca32b8724a0432de6434c8dd8b1a9eaaf5d933b849ce87b2d124937f88ca6eb8",
+      "workdir_context_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.155.1"
+    }
+  ],
+  "suite": {
+    "path": "suites/security-reviewer",
+    "sha256": "fb72a054fd1ea04d2d78427554fbb0d7a85a5d776fb25d8e7e70662e08446869",
+    "n_cases": 30,
+    "n_measured": 30
+  },
+  "status": "UNKNOWN",
+  "scores": [
+    {
+      "metric": "recall",
+      "value": 0.903226,
+      "ci_low": 0.751001,
+      "ci_high": 0.966535,
+      "ci_method": "wilson",
+      "basis": "interval",
+      "threshold": 0.6,
+      "pass": true
+    },
+    {
+      "metric": "false_positives_per_clean_case",
+      "value": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "ci_method": "bootstrap",
+      "basis": "interval",
+      "threshold": 0.5,
+      "pass": true
+    },
+    {
+      "metric": "schema_validity",
+      "value": 1.0,
+      "ci_low": 0.886487,
+      "ci_high": 1.0,
+      "ci_method": "wilson",
+      "basis": "point",
+      "threshold": 0.98,
+      "pass": true
+    }
+  ],
+  "cost": {
+    "input_tokens": 420237,
+    "cached_input_tokens": 245632,
+    "output_tokens": 47264,
+    "wall_s": 1002.07
+  },
+  "issued_at": "2026-10-02T02:18:52Z",
+  "expires_at": "2026-11-01T02:18:52Z",
+  "status_reason": "suite has 30 cases, role requires at least 100"
+}
