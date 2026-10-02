@@ -9,6 +9,7 @@ global:
   docs:
     - docs/specs/2026-09-30-system-vision-design.md
     - docs/specs/2026-10-01-sendesis-m3-design.md
+    - docs/specs/2026-10-02-sendesis-m3.2-router-design.md
     - CLAUDE.md
     - docs/PLAN.md
   archival:
