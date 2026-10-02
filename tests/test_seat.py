@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from agno_cli_models import CliTimeoutError, ModelRateLimitError
+from agno_cli_models import CliStallError, CliTimeoutError, ModelRateLimitError
 
 from conftest import edit_yaml
 from fakes import ScriptedModel
@@ -170,3 +170,32 @@ def test_no_profile_idle_limit_keeps_the_class_default(root: Path, tmp_path: Pat
     role = load_role(root / "roles" / "security-reviewer.yaml", root)
     model = build_model(load_profile(root / "profiles" / "codex-gpt.yaml", root), role, cwd=tmp_path, timeout_s=300)
     assert model.idle_timeout_s == 60.0
+
+
+def stall_error():
+    return CliStallError("codex sent nothing for 60.0s (last: item/started)", idle_s=60.0,
+                         last_method="item/started", answer_open=True)
+
+
+def test_stall_is_typed_with_its_details(root: Path):
+    r = run(root, stall_error())
+    assert r.outcome is Outcome.STALL
+    assert r.stall == {"idle_s": 60.0, "last_method": "item/started", "answer_open": True}
+    assert "CliStallError" in r.reason
+
+
+def test_plain_timeout_is_still_a_timeout(root: Path):
+    r = run(root, CliTimeoutError("no answer in 300s"))
+    assert r.outcome is Outcome.TIMEOUT and r.stall is None
+
+
+def test_stall_inside_another_error_is_still_a_stall(root: Path):
+    try:
+        try:
+            raise stall_error()
+        except CliStallError as inner:
+            raise RuntimeError("wrapped") from inner
+    except RuntimeError as outer:
+        wrapped = outer
+    r = run(root, wrapped)
+    assert r.outcome is Outcome.STALL and r.stall["last_method"] == "item/started"

@@ -19,7 +19,7 @@ from typing import Any
 from agno.agent import Agent
 from agno.run.base import RunStatus
 from agno_cli_models import CliModel
-from agno_cli_models import ClaudeCodeModel, CliTimeoutError, CodexModel, ModelRateLimitError
+from agno_cli_models import ClaudeCodeModel, CliStallError, CliTimeoutError, CodexModel, ModelRateLimitError
 from jsonschema import Draft202012Validator
 
 from sendesis.model import REVIEWER_FORBIDDEN_TOOLS, Profile, Role, schema_validator
@@ -37,6 +37,7 @@ class Outcome(str, Enum):
     INVALID = "invalid"
     RATE_LIMIT = "rate_limit"
     TIMEOUT = "timeout"
+    STALL = "stall"
     ERROR = "error"
 
 
@@ -53,6 +54,7 @@ class SeatResult:
     output_tokens: int = 0
     wall_s: float = 0.0
     reason: str = ""
+    stall: dict[str, Any] | None = None
 
 
 def build_model(profile: Profile, role: Role, *, cwd: Path, timeout_s: float):
@@ -202,6 +204,16 @@ def _raw_text(out: Any) -> str:
     return out.content if isinstance(out.content, str) else ""
 
 
+def _find_stall(err: BaseException | None) -> CliStallError | None:
+    seen = []
+    while err is not None and err not in seen:
+        if isinstance(err, CliStallError):
+            return err
+        seen.append(err)
+        err = err.__cause__ or err.__context__
+    return None
+
+
 def _is_timeout(err: BaseException | None) -> bool:
     try:
         from openai import APITimeoutError
@@ -238,8 +250,12 @@ def run_seat(agent: Agent, message: str, validator: Draft202012Validator) -> Sea
     )
     if out.status == RunStatus.error:
         err = holder.get("error")
+        stall = _find_stall(err)
         if isinstance(err, ModelRateLimitError):
             result.outcome = Outcome.RATE_LIMIT
+        elif stall is not None:
+            result.outcome = Outcome.STALL
+            result.stall = {"idle_s": stall.idle_s, "last_method": stall.last_method, "answer_open": stall.answer_open}
         elif _is_timeout(err):
             result.outcome = Outcome.TIMEOUT
         else:
