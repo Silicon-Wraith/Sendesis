@@ -70,11 +70,15 @@ def build_model(profile: Profile, role: Role, *, cwd: Path, timeout_s: float):
         max_turns = min((t for t in (role.max_turns, profile.max_turns) if t), default=None)
         if max_turns:
             kwargs["max_turns"] = max_turns
+        if profile.idle_timeout_s is not None:
+            kwargs["idle_timeout_s"] = profile.idle_timeout_s
         return ClaudeCodeModel(**kwargs)
     if m.cls == "codex":
         kwargs = {"id": m.id, "cwd": str(cwd), "timeout_s": timeout_s, "sandbox": "read-only", "builtin_tools": bool(role.tools_allowed)}
         if m.effort:
             kwargs["effort"] = m.effort
+        if profile.idle_timeout_s is not None:
+            kwargs["idle_timeout_s"] = profile.idle_timeout_s
         return CodexModel(**kwargs)
     if m.cls == "openai_like":
         from agno.models.openai.like import OpenAILike

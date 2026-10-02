@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from agno_cli_models import CliTimeoutError, ModelRateLimitError
 
+from conftest import edit_yaml
 from fakes import ScriptedModel
 from sendesis.model import load_profile, load_role, schema_validator
 from sendesis.seat import (
@@ -152,3 +153,20 @@ def test_max_turns_is_the_smaller_of_role_and_profile(root: Path, tmp_path: Path
         edit_yaml(ppath, lambda d: d.update(max_turns=profile_turns) if profile_turns else d.pop("max_turns", None))
         model = build_model(load_profile(ppath, root), load_role(rpath, root), cwd=tmp_path, timeout_s=30)
         assert model.max_turns == want
+
+
+def test_profile_idle_limit_reaches_cli_models_and_their_fingerprint(root: Path, tmp_path: Path):
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    for name in ("claude-opus", "codex-gpt"):
+        path = root / "profiles" / f"{name}.yaml"
+        default = build_model(load_profile(path, root), role, cwd=tmp_path, timeout_s=300)
+        edit_yaml(path, lambda d: d.update(idle_timeout_s=45))
+        model = build_model(load_profile(path, root), role, cwd=tmp_path, timeout_s=300)
+        assert model.idle_timeout_s == 45 and model.timeout_s == 300
+        assert model.config_fingerprint() != default.config_fingerprint()
+
+
+def test_no_profile_idle_limit_keeps_the_class_default(root: Path, tmp_path: Path):
+    role = load_role(root / "roles" / "security-reviewer.yaml", root)
+    model = build_model(load_profile(root / "profiles" / "codex-gpt.yaml", root), role, cwd=tmp_path, timeout_s=300)
+    assert model.idle_timeout_s == 60.0

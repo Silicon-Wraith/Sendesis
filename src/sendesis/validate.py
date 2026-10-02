@@ -79,6 +79,11 @@ def _check_profile(p: Profile, root: Path, report: Report) -> None:
             report.errors.append(f"{where}: model class {p.model.cls} needs model.cli_version (the {binary} version it was set up with)")
     if p.model.cls == "openai_like" and not p.model.base_url:
         report.errors.append(f"{where}: model class openai_like needs model.base_url")
+    if p.idle_timeout_s is not None:
+        if p.model.cls not in CLI_CLASSES:
+            report.warnings.append(f"{where}: idle_timeout_s applies only to claude_code and codex; model class {p.model.cls} ignores it")
+        elif p.idle_timeout_s >= p.timeout_s:
+            report.warnings.append(f"{where}: idle_timeout_s {p.idle_timeout_s} is not below timeout_s {p.timeout_s}, so the wall clock always fires first")
 
 
 def _check_role(role: Role, profiles: dict[str, Profile], profile_files: set[str], root: Path, report: Report) -> None:

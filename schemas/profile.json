@@ -29,6 +29,7 @@
     },
     "timeout_s": {"type": "integer", "minimum": 1},
     "max_turns": {"type": "integer", "minimum": 1},
+    "idle_timeout_s": {"type": "number", "exclusiveMinimum": 0, "description": "Longest silence from the CLI a call tolerates, in seconds. claude_code and codex only; absent means the model class default (60 s in agno-cli-models v0.1.2). Part of the class's config fingerprint."},
     "notes": {"type": "string"}
   }
 }
