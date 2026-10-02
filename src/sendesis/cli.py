@@ -76,12 +76,16 @@ def cmd_stage(args: argparse.Namespace) -> int:
 
     root = Path(args.root)
     wf = Path(args.workflow) if args.workflow.endswith((".yaml", ".yml")) else root / "workflows" / f"{args.workflow}.yaml"
-    diff = Path(args.diff).read_text(encoding="utf-8")
     context: dict[str, str] = {}
-    if args.context:
-        base = Path(args.context)
-        context = {p.relative_to(base).as_posix(): p.read_text(encoding="utf-8")
-                   for p in sorted(base.rglob("*")) if p.is_file()}
+    try:
+        diff = Path(args.diff).read_text(encoding="utf-8")
+        if args.context:
+            base = Path(args.context)
+            context = {p.relative_to(base).as_posix(): p.read_text(encoding="utf-8")
+                       for p in sorted(base.rglob("*")) if p.is_file()}
+    except OSError as exc:
+        print(f"FAIL {exc}")
+        return 2
     try:
         r = run_stage(root, wf, args.stage, diff=diff, context=context)
     except StageError as exc:
@@ -126,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("stage", help="Run one stage's reviewer seats through the router and failover. Spends quota for CLI classes.")
     p.add_argument("workflow", help="Workflow id (workflows/<id>.yaml) or path to a workflow file")
     p.add_argument("stage", help="Stage id within the workflow")
-    p.add_argument("--diff", required=True, help="Unified diff to review")
+    p.add_argument("--diff", required=True, help="Unified diff to review. The diff and context files must live outside the repository or be git-ignored, because a stage refuses to start on a dirty tree.")
     p.add_argument("--context", help="Directory of context files, sent under their paths relative to it")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_stage)

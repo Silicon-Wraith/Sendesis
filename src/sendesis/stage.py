@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -109,8 +109,10 @@ def run_stage(root: Path, workflow_path: Path, stage_id: str, *, diff: str, cont
     for seat in stage.seats:
         try:
             roles[seat.role] = load_role(root / "roles" / f"{seat.role}.yaml", root)
-        except (ValidationFailed, FileNotFoundError):
+        except FileNotFoundError:
             return finish("refused", refusal=f"refused: stage {stage.id}: role {seat.role} not found")
+        except ValidationFailed as exc:
+            return finish("refused", refusal=f"refused: stage {stage.id}: role {seat.role} cannot be loaded: {exc}")
     try:
         clean = is_clean(cwd)
     except GitError as exc:
@@ -120,19 +122,24 @@ def run_stage(root: Path, workflow_path: Path, stage_id: str, *, diff: str, cont
 
     status_fn = status_fn or _cached_status(root, now)
     seat_fn = seat_fn or default_seat_fn(root)
-    plan = route(stage, roles, root, status_fn, fixed={}, run_excluded={}, slot_excluded={}, sandbox=sandbox)
-    if isinstance(plan, Refusal):
-        return finish("refused", refusal=plan.text)
-    initial.update(plan.profiles)
-    state.warnings.extend(plan.warnings)
-    messages = {rid: review_message(rid, diff, context) for rid in roles}
+    outcome: dict[str, Any] = {"status": "completed"}
     try:
-        for slot in slots(stage):
-            res = run_slot(slot, stage, roles, state, root=root, cwd=cwd, messages=messages,
-                           status_fn=status_fn, seat_fn=seat_fn, sandbox=sandbox)
-            if isinstance(res, Refusal):
-                return finish("refused", refusal=res.text)
-            finished[slot.label] = (slot.role_id, state.fixed[slot.label], res.output)
+        plan = route(stage, roles, root, status_fn, fixed={}, run_excluded={}, slot_excluded={}, sandbox=sandbox)
+        if isinstance(plan, Refusal):
+            outcome = {"status": "refused", "refusal": plan.text}
+        else:
+            initial.update(plan.profiles)
+            state.warnings.extend(plan.warnings)
+            messages = {rid: review_message(rid, diff, context) for rid in roles}
+            for slot in slots(stage):
+                res = run_slot(slot, stage, roles, state, root=root, cwd=cwd, messages=messages,
+                               status_fn=status_fn, seat_fn=seat_fn, sandbox=sandbox)
+                if isinstance(res, Refusal):
+                    outcome = {"status": "refused", "refusal": res.text}
+                    break
+                finished[slot.label] = (slot.role_id, state.fixed[slot.label], res.output)
     except StageStopped as exc:
-        return finish("stopped", stop_reason=str(exc))
-    return finish("completed")
+        outcome = {"status": "stopped", "stop_reason": str(exc)}
+    except Exception as exc:
+        outcome = {"status": "stopped", "stop_reason": f"untyped exception {type(exc).__name__}: {exc}"}
+    return finish(**outcome)

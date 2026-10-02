@@ -50,6 +50,14 @@ def test_provisional_role_rejects_placeholder_family(root: Path):
     assert c.verdict == REJECTED and "placeholder" in c.reason
 
 
+def test_placeholder_family_is_rejected_for_a_role_with_a_suite(root: Path):
+    edit_yaml(root / "profiles" / "vllm-local.yaml", lambda d: d.update(enabled=True))
+    add_role(root, "r", order=["vllm-local"], suite=True)
+    role = load_role(root / "roles" / "r.yaml", root)
+    [c] = candidates(role, root, lambda role, profile: ("QUALIFIED", []))
+    assert c.verdict == REJECTED and "placeholder" in c.reason
+
+
 def test_excluded_profile_is_rejected_with_its_reason(root: Path):
     add_role(root, "p", order=ORDER)
     role = load_role(root / "roles" / "p.yaml", root)

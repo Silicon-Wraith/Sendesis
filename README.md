@@ -568,7 +568,7 @@ software-engineering workflows:
 
 One piece is usable now:
 
--   `sendesis stage <workflow> <stage-id> --diff <file>` runs one reviewer stage through the router: only acceptable profiles, family rules, failover on rate limits, timeouts, stalls and errors, and a refusal naming what is missing. The record goes to `.sendesis/runs/<run-id>/stage.json`.
+-   `sendesis stage <workflow> <stage-id> --diff <file>` runs one reviewer stage through the router: only acceptable profiles, family rules, failover on rate limits, timeouts, stalls and errors, and a refusal naming what is missing. The record goes to `.sendesis/runs/<run-id>/stage.json`. The diff and context files must live outside the repository or be git-ignored, because a stage refuses to start on a dirty tree.
 
 The immediate objective is not to build a large collection of agents.
 

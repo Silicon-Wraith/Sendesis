@@ -79,11 +79,11 @@ def candidates(role: Role, root: Path, status_fn: StatusFn, *, excluded: dict[st
         if problem:
             out.append(Candidate(pid, REJECTED, family, problem))
             continue
+        if family == PLACEHOLDER:
+            out.append(Candidate(pid, REJECTED, family, f"family is the placeholder '{PLACEHOLDER}'"))
+            continue
         if role.provisional:
-            if family == PLACEHOLDER:
-                out.append(Candidate(pid, REJECTED, family, f"family is the placeholder '{PLACEHOLDER}'"))
-            else:
-                out.append(Candidate(pid, PROVISIONAL, family))
+            out.append(Candidate(pid, PROVISIONAL, family))
             continue
         status, reasons = status_fn(role, profile)
         if status == "QUALIFIED":

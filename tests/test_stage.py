@@ -1,4 +1,5 @@
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -97,6 +98,55 @@ def test_stopped_stage_is_recorded(root: Path):
     assert json.loads(r.record_path.read_text())["stop_reason"] == r.stop_reason
 
 
+def test_invalid_role_refuses_with_its_error(root: Path):
+    (root / "roles" / "bad.yaml").write_text("id: bad\n")
+    wf = write_workflow(root, "wf", [{"role": "bad"}])
+    git_init(root)
+    fn = scripted({})
+    r = go(root, wf, fn)
+    assert r.status == "refused" and fn.calls == []
+    assert r.refusal.startswith("refused: stage review: role bad cannot be loaded: ")
+    assert "not found" not in r.refusal
+
+
+def test_status_fn_failure_stops_the_stage_with_a_record(root: Path):
+    add_role(root, "q", order=ORDER, suite=True)
+    wf = write_workflow(root, "wf", [{"role": "q"}])
+    git_init(root)
+
+    def bad(role, profile):
+        raise RuntimeError("bad receipt")
+
+    fn = scripted({})
+    r = go(root, wf, fn, status_fn=bad)
+    assert r.status == "stopped" and "bad receipt" in r.stop_reason and fn.calls == []
+    assert json.loads(r.record_path.read_text())["status"] == "stopped"
+
+
+def test_git_failure_mid_run_stops_the_stage_and_keeps_the_attempt(root: Path):
+    wf = make(root, [{"role": "p"}])
+
+    def wreck(cwd):
+        shutil.rmtree(cwd / ".git")
+        return ok()
+
+    r = go(root, wf, scripted({"claude-opus": [wreck]}))
+    assert r.status == "stopped" and r.stop_reason
+    rec = json.loads(r.record_path.read_text())
+    assert rec["status"] == "stopped" and [a["profile"] for a in rec["attempts"]] == ["claude-opus"]
+
+
+def test_mid_run_refusal_keeps_the_finished_seat(root: Path):
+    wf = make(root, [{"role": "p", "count": 2, "distinct_families": 1}])
+    fn = scripted({"claude-opus": [ok(), result(Outcome.ERROR)], "codex-gpt": [result(Outcome.ERROR)],
+                   "ollama-local": [result(Outcome.ERROR)]})
+    r = go(root, wf, fn)
+    assert r.status == "refused"
+    assert r.refusal.startswith("refused: stage review: p needs 1 family, 0 acceptable for seat B")
+    assert (r.record_path.parent / "seat-A.json").exists()
+    assert list(r.seats) == ["A"]
+
+
 def test_unknown_stage_id_is_an_error(root: Path):
     wf = make(root, [{"role": "p"}])
     with pytest.raises(StageError, match="has no stage nope"):
@@ -141,6 +191,14 @@ def test_cli_stage_refused_exits_1(root: Path, inputs: Path, monkeypatch, capsys
     assert main(["stage", str(wf), "review", "--diff", str(diff), "--root", str(root)]) == 1
     out = capsys.readouterr().out
     assert out.startswith("REFUSED") and "needs 2 families, 1 acceptable" in out
+
+
+def test_cli_stage_missing_diff_exits_2(root: Path, inputs: Path, monkeypatch, capsys):
+    from sendesis.cli import main
+
+    wf, _ = cli_setup(root, inputs, monkeypatch, {})
+    assert main(["stage", str(wf), "review", "--diff", str(inputs / "none.diff"), "--root", str(root)]) == 2
+    assert capsys.readouterr().out.startswith("FAIL ")
 
 
 def test_cli_stage_unknown_stage_exits_2(root: Path, inputs: Path, monkeypatch, capsys):
