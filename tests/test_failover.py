@@ -80,7 +80,7 @@ def test_running_out_of_profiles_refuses(root: Path):
     fn = scripted({p: [result(Outcome.ERROR)] for p in ORDER})
     state, refusal = run_all(root, stage, roles, fn)
     assert isinstance(refusal, Refusal)
-    assert refusal.text.splitlines()[0] == "refused: stage review: p needs 1 family, 0 acceptable (none)"
+    assert refusal.text.splitlines()[0] == "refused: stage review: p needs 1 family, 0 acceptable for seat A"
     assert "  rejected: ollama-local: failed this seat (error)" in refusal.text.splitlines()
 
 
@@ -135,3 +135,34 @@ def test_every_attempt_gets_the_same_message(root: Path):
     fn = scripted({"claude-opus": [result(Outcome.STALL)], "codex-gpt": [ok()]})
     run_all(root, stage, roles, fn)
     assert [c[2] for c in fn.calls] == ["review this", "review this"]
+
+
+def test_refusal_after_a_finished_seat_names_the_stuck_seat(root: Path):
+    stage, roles = setup(root, count=2)
+    fn = scripted({"claude-opus": [ok(), result(Outcome.ERROR)], "codex-gpt": [result(Outcome.ERROR)],
+                   "ollama-local": [result(Outcome.ERROR)]})
+    state, refusal = run_all(root, stage, roles, fn)
+    assert isinstance(refusal, Refusal)
+    assert refusal.text.splitlines() == [
+        "refused: stage review: p needs 1 family, 0 acceptable for seat B",
+        "  kept: A claude-opus (anthropic)",
+        "  rejected: claude-opus: failed this seat (error)",
+        "  rejected: codex-gpt: failed this seat (error)",
+        "  rejected: ollama-local: failed this seat (error)",
+    ]
+
+
+def test_invalid_then_ok_on_retry_keeps_the_profile(root: Path):
+    stage, roles = setup(root)
+    fn = scripted({"claude-opus": [result(Outcome.INVALID), ok()]})
+    state, out = run_all(root, stage, roles, fn)
+    assert trail(state) == [("A", "claude-opus", "invalid"), ("A", "claude-opus", "ok")]
+    assert state.fixed == {"A": "claude-opus"}
+
+
+def test_invalid_then_rate_limit_excludes_for_the_run(root: Path):
+    stage, roles = setup(root)
+    fn = scripted({"claude-opus": [result(Outcome.INVALID), result(Outcome.RATE_LIMIT)], "codex-gpt": [ok()]})
+    state, out = run_all(root, stage, roles, fn)
+    assert trail(state) == [("A", "claude-opus", "invalid"), ("A", "claude-opus", "rate_limit"), ("A", "codex-gpt", "ok")]
+    assert state.run_excluded == {"claude-opus": "rate-limited earlier in this run"}

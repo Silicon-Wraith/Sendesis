@@ -76,14 +76,16 @@ def run_slot(slot: Slot, stage: Stage, roles: dict[str, Role], state: RunState, 
                      slot_excluded=state.slot_excluded, sandbox=sandbox)
         if isinstance(plan, Refusal):
             return plan
-        for w in plan.warnings:
-            if w not in state.warnings:
-                state.warnings.append(w)
         pid = plan.profiles[slot.label]
+        for w in plan.warnings:
+            if f"profile {pid} not qualified" in w and w not in state.warnings:
+                state.warnings.append(w)
         profile = load_profile(root / "profiles" / f"{pid}.yaml", root)
         start = snapshot(cwd)
         res = _call(slot, role, profile, plan.families[slot.label], messages[role.id], cwd, state, seat_fn)
         if res.outcome is Outcome.INVALID:  # one retry on the same profile
+            if role.kind != "reviewer":
+                reset_to(cwd, start)
             res = _call(slot, role, profile, plan.families[slot.label], messages[role.id], cwd, state, seat_fn)
         if res.outcome is Outcome.OK:
             state.fixed[slot.label] = pid

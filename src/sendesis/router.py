@@ -123,17 +123,34 @@ def _fill(seat_slots: list[Slot], cands, fixed, need: int) -> list[Candidate] | 
 
 
 def _refusal(stage: Stage, role_id: str, need: int, seat_slots: list[Slot], cands, fixed) -> Refusal:
-    acceptable: dict[str, list[str]] = {}
+    kept = []
     for s in seat_slots:
-        for c in _options(s, cands, fixed):
-            names = acceptable.setdefault(c.family, [])
-            if c.profile_id not in names:
-                names.append(c.profile_id)
-    families = ", ".join(f"{fam}: {', '.join(names)}" for fam, names in acceptable.items()) or "none"
+        if s.label in fixed:
+            c = next(c for c in cands[s.label] if c.profile_id == fixed[s.label])
+            kept.append((s.label, c.profile_id, c.family))
+    open_slots = [s for s in seat_slots if s.label not in fixed]
     word = "family" if need == 1 else "families"
-    lines = [f"refused: stage {stage.id}: {role_id} needs {need} {word}, {len(acceptable)} acceptable ({families})"]
+    stuck = next((s for s in open_slots if not any(c.usable for c in cands[s.label])), None)
+    if stuck is not None:
+        lines = [f"refused: stage {stage.id}: {role_id} needs {need} {word}, 0 acceptable for seat {stuck.label}"]
+        rejecting = [stuck]
+    else:
+        acceptable: dict[str, list[str]] = {}
+        for _, pid, fam in kept:
+            names = acceptable.setdefault(fam, [])
+            if pid not in names:
+                names.append(pid)
+        for s in open_slots:
+            for c in _options(s, cands, fixed):
+                names = acceptable.setdefault(c.family, [])
+                if c.profile_id not in names:
+                    names.append(c.profile_id)
+        families = ", ".join(f"{fam}: {', '.join(names)}" for fam, names in acceptable.items()) or "none"
+        lines = [f"refused: stage {stage.id}: {role_id} needs {need} {word}, {len(acceptable)} acceptable ({families})"]
+        rejecting = open_slots
+    lines += [f"  kept: {label} {pid} ({fam})" for label, pid, fam in kept]
     seen: set[tuple[str, str]] = set()
-    for s in seat_slots:
+    for s in rejecting:
         for c in cands[s.label]:
             if not c.usable and (c.profile_id, c.reason) not in seen:
                 seen.add((c.profile_id, c.reason))

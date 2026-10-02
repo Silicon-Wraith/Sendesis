@@ -117,8 +117,9 @@ def test_refusal_text_names_role_families_and_rejections(root: Path):
     assert isinstance(r, Refusal)
     assert r.text.splitlines() == [
         "refused: stage review: p needs 2 families, 1 acceptable (openai: codex-gpt)",
-        "  rejected: ollama-local: disabled",
+        "  kept: A codex-gpt (openai)",
         "  rejected: claude-opus: failed this seat (stall)",
+        "  rejected: ollama-local: disabled",
     ]
 
 
@@ -130,6 +131,6 @@ def test_real_security_reviewer_stage_refuses_today(root: Path):
     status_fn = lambda rl, pr: profile_status(root, rl, pr, NOW, version_fn=versions.get)
     r = route(stage, {"security-reviewer": role}, root, status_fn, fixed={}, run_excluded={}, slot_excluded={})
     assert isinstance(r, Refusal)
-    assert r.text.startswith("refused: stage review: security-reviewer needs 1 family, 0 acceptable (none)")
+    assert r.text.startswith("refused: stage review: security-reviewer needs 1 family, 0 acceptable for seat A")
     assert "  rejected: claude-opus: receipt UNKNOWN: suite has 30 cases, role requires at least 100" in r.text.splitlines()
     assert "  rejected: codex-gpt: receipt UNKNOWN: suite has 30 cases, role requires at least 100" in r.text.splitlines()
