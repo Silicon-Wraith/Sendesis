@@ -18,7 +18,7 @@ from typing import Any
 
 from agno.agent import Agent
 from agno.run.base import RunStatus
-from agno_cli_models._base import CliModel
+from agno_cli_models import CliModel
 from agno_cli_models import ClaudeCodeModel, CliTimeoutError, CodexModel, ModelRateLimitError
 from jsonschema import Draft202012Validator
 
