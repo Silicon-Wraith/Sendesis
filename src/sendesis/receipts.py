@@ -106,6 +106,50 @@ def latest_receipts(root: Path) -> list[Path]:
     return latest
 
 
+def _current_status(root: Path, receipt: dict[str, Any], role: Role, profile: Profile, now: datetime,
+                    version_fn, versions: dict[str, str | None]) -> tuple[str, list[str], bool]:
+    """Effective status of one single-profile receipt against the current role, profile, suite,
+    CLI version and model configuration. Does not include the recorded status_reason.
+    Returns (status, reasons, built) where built=False if seat cannot be built, True otherwise."""
+    cases = root / receipt["suite"]["path"] / "cases"
+    current_suite = suite_sha256(cases) if cases.is_dir() else None
+    if profile.cli_binary and profile.cli_binary not in versions:
+        versions[profile.cli_binary] = version_fn(profile.cli_binary)
+    try:
+        fingerprint = current_fingerprint(profile, role)
+    except Exception as exc:  # SandboxUnavailable, a missing binary: the receipt cannot hold
+        return "UNKNOWN", [f"seat cannot be built: {exc}"], False
+    status, reasons = effective_status(
+        receipt,
+        role=role,
+        profile=profile,
+        suite_sha256=current_suite,
+        cli_version=versions.get(profile.cli_binary) if profile.cli_binary else None,
+        config_fingerprint=fingerprint,
+        now=now,
+    )
+    if current_suite is None:
+        reasons = reasons + [f"suite {receipt['suite']['path']} not found"]
+        status = "UNKNOWN"
+    return status, reasons, True
+
+
+def profile_status(root: Path, role: Role, profile: Profile, now: datetime, *,
+                   version_fn=None, versions: dict[str, str | None] | None = None) -> tuple[str, list[str]]:
+    """Status the router may rely on for this role and profile: ("NONE", []) without a receipt,
+    else the newest receipt's effective status, with drift reasons and then its recorded reason."""
+    folder = root / "receipts" / role.id / profile.id
+    files = sorted(folder.glob("*.json")) if folder.is_dir() else []
+    if not files:
+        return "NONE", []
+    receipt = json.loads(files[-1].read_text(encoding="utf-8"))
+    status, reasons, built = _current_status(root, receipt, role, profile, now, version_fn or installed_version,
+                                             versions if versions is not None else {})
+    if built and receipt.get("status_reason"):
+        reasons = reasons + [receipt["status_reason"]]
+    return status, reasons
+
+
 def check_all(root: Path, now: datetime) -> list[tuple[Path, str, str, list[str]]]:
     """(path, recorded status, effective status, reasons) for each latest single receipt."""
     rows = []
@@ -120,28 +164,8 @@ def check_all(root: Path, now: datetime) -> list[tuple[Path, str, str, list[str]
         except Exception as exc:  # a missing or broken file voids the receipt
             rows.append((path, receipt["status"], "UNKNOWN", [f"cannot load role or profile: {exc}"]))
             continue
-        cases = root / receipt["suite"]["path"] / "cases"
-        current_suite = suite_sha256(cases) if cases.is_dir() else None
-        if profile.cli_binary and profile.cli_binary not in versions:
-            versions[profile.cli_binary] = installed_version(profile.cli_binary)
-        try:
-            fingerprint = current_fingerprint(profile, role)
-        except Exception as exc:  # SandboxUnavailable, a missing binary: void this row, keep listing
-            rows.append((Path(rel_path(path, root)), receipt["status"], "UNKNOWN", [f"seat cannot be built: {exc}"]))
-            continue
-        status, reasons = effective_status(
-            receipt,
-            role=role,
-            profile=profile,
-            suite_sha256=current_suite,
-            cli_version=versions.get(profile.cli_binary) if profile.cli_binary else None,
-            config_fingerprint=fingerprint,
-            now=now,
-        )
-        if current_suite is None:
-            reasons = reasons + [f"suite {receipt['suite']['path']} not found"]
-            status = "UNKNOWN"
-        if receipt.get("status_reason"):
+        status, reasons, built = _current_status(root, receipt, role, profile, now, installed_version, versions)
+        if built and receipt.get("status_reason"):
             reasons = reasons + [f"recorded: {receipt['status_reason']}"]
         rows.append((Path(rel_path(path, root)), receipt["status"], status, reasons))
     return rows

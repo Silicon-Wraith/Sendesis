@@ -71,6 +71,42 @@ def cmd_receipts(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_stage(args: argparse.Namespace) -> int:
+    from sendesis.stage import StageError, run_stage
+
+    root = Path(args.root)
+    wf = Path(args.workflow) if args.workflow.endswith((".yaml", ".yml")) else root / "workflows" / f"{args.workflow}.yaml"
+    context: dict[str, str] = {}
+    try:
+        diff = Path(args.diff).read_text(encoding="utf-8")
+        if args.context:
+            base = Path(args.context)
+            context = {p.relative_to(base).as_posix(): p.read_text(encoding="utf-8")
+                       for p in sorted(base.rglob("*")) if p.is_file()}
+    except OSError as exc:
+        print(f"FAIL {exc}")
+        return 2
+    try:
+        r = run_stage(root, wf, args.stage, diff=diff, context=context)
+    except StageError as exc:
+        print(f"FAIL {exc}")
+        return 2
+    print(f"{r.status.upper()}  stage {args.stage} of {wf.stem}  (run {r.run_id})")
+    for w in r.warnings:
+        print(f"  warning: {w}")
+    for a in r.attempts:
+        print(f"  seat {a.label}: {a.outcome} {a.wall_s:.1f}s" + (f"  {a.reason[:160]}" if a.reason and a.outcome != "ok" else ""))
+    if r.refusal:
+        print("  " + r.refusal.replace("\n", "\n  "))
+    if r.stop_reason:
+        print(f"  stopped: {r.stop_reason}")
+    print("  mapping:")
+    for a in r.attempts:
+        print(f"    {a.label} {a.profile} {a.outcome}")
+    print(f"  record: {r.record_path}")
+    return 0 if r.status == "completed" else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sendesis")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -90,6 +126,14 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("receipts", help="Show each latest receipt and whether it still holds.")
     p.add_argument("--root", default=".")
     p.set_defaults(func=cmd_receipts)
+
+    p = sub.add_parser("stage", help="Run one stage's reviewer seats through the router and failover. Spends quota for CLI classes.")
+    p.add_argument("workflow", help="Workflow id (workflows/<id>.yaml) or path to a workflow file")
+    p.add_argument("stage", help="Stage id within the workflow")
+    p.add_argument("--diff", required=True, help="Unified diff to review. The diff and context files must live outside the repository or be git-ignored, because a stage refuses to start on a dirty tree.")
+    p.add_argument("--context", help="Directory of context files, sent under their paths relative to it")
+    p.add_argument("--root", default=".")
+    p.set_defaults(func=cmd_stage)
 
     args = parser.parse_args(argv)
     return args.func(args)
